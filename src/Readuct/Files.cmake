@@ -1,0 +1,16 @@
+set(READUCT_APP_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/Task.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/GeometryOptimizationTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/TaskFactory.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/AFIROptimizationTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/TSOptimizationTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/HessianTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/IRCTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/SinglePointTask.h
+)
+set(READUCT_PYTHON_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/Python/PythonModule.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Python/SystemPython.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Python/TasksPython.cpp
+)
