@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.9)
 # tree must then provide a properly namespaced target with the same name as
 # your project.
 project(Readuct
-  VERSION 1.0.0
+  VERSION 1.0.1
   DESCRIPTION "This is the SCINE module Readuct."
 )
 
