@@ -4,23 +4,33 @@
  *            Copyright ETH Zurich, Laboratory for Physical Chemistry, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
-#include "Tasks/AFIROptimizationTask.h"
+#include "Tasks/AfirOptimizationTask.h"
+#include "Tasks/BSplineInterpolationTask.h"
+#include "Tasks/BondOrderTask.h"
 #include "Tasks/GeometryOptimizationTask.h"
 #include "Tasks/HessianTask.h"
-#include "Tasks/IRCTask.h"
+#include "Tasks/IrcTask.h"
 #include "Tasks/SinglePointTask.h"
-#include "Tasks/TSOptimizationTask.h"
 #include "Tasks/Task.h"
+#include "Tasks/TsOptimizationTask.h"
 #include <Core/Interfaces/Calculator.h>
+#include <Utils/IO/Logger.h>
 #include <Utils/IO/Yaml.h>
+#include <Utils/UniversalSettings/SettingsNames.h>
 #include <pybind11/pybind11.h>
 #include <iostream>
-// #include <pybind11/stl.h>
 
 using namespace Scine;
 
 template<class TaskName>
-pybind11::dict run(pybind11::dict inputSystems, pybind11::list inputNames, pybind11::kwargs kwargs) {
+std::tuple<pybind11::dict, bool> run(pybind11::dict inputSystems, pybind11::list inputNames, pybind11::kwargs kwargs) {
+  // Start logger
+  std::string loggingVerbosity = "info";
+  if (kwargs.contains(Utils::SettingsNames::loggerVerbosity)) {
+    loggingVerbosity = kwargs[Utils::SettingsNames::loggerVerbosity].cast<std::string>();
+  }
+  Utils::Log::startConsoleLogging(loggingVerbosity);
+
   // Read all systems
   std::map<std::string, std::shared_ptr<Core::Calculator>> systems;
   for (auto item : inputSystems) {
@@ -46,20 +56,44 @@ pybind11::dict run(pybind11::dict inputSystems, pybind11::list inputNames, pybin
         output.push_back(name);
       }
     }
-    else {
-      std::string value = pybind11::str(item.second).cast<std::string>();
+    else if (pybind11::isinstance<pybind11::bool_>(item.second)) {
+      bool value = item.second.cast<bool>();
       settingsnode[key] = value;
+    }
+    else if (pybind11::isinstance<pybind11::str>(item.second)) {
+      std::string value = item.second.cast<std::string>();
+      settingsnode[key] = value;
+    }
+    else if (pybind11::isinstance<pybind11::int_>(item.second)) {
+      int value = item.second.cast<int>();
+      settingsnode[key] = value;
+    }
+    else if (pybind11::isinstance<pybind11::float_>(item.second)) {
+      double value = item.second.cast<double>();
+      settingsnode[key] = value;
+    }
+    else if (pybind11::isinstance<pybind11::list>(item.second)) {
+      pybind11::list list = item.second.cast<pybind11::list>();
+      std::vector<std::string> strings;
+      for (auto item : list) {
+        std::string str = pybind11::str(item).cast<std::string>();
+        strings.push_back(str);
+      }
+      settingsnode[key] = strings;
+    }
+    else {
+      throw std::runtime_error(key + " could not be converted from Python into C++ a variable, check its type!");
     }
   }
   // Run
   auto task = std::make_unique<TaskName>(input, output);
-  task->run(systems, settingsnode);
+  auto success = task->run(systems, settingsnode);
   // Update systems
   for (auto item : systems) {
     inputSystems[pybind11::cast(item.first)] = item.second;
   }
 
-  return inputSystems;
+  return {inputSystems, success};
 }
 
 void init_tasks(pybind11::module& m) {
@@ -68,13 +102,16 @@ void init_tasks(pybind11::module& m) {
   m.def("run_sp_task", &run<Readuct::SinglePointTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
   m.def("run_optimization_task", &run<Readuct::GeometryOptimizationTask>, pybind11::arg("systems"),
         pybind11::arg("names_of_used_systems"));
+  m.def("run_bond_order_task", &run<Readuct::BondOrderTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
   m.def("run_opt_task", &run<Readuct::GeometryOptimizationTask>, pybind11::arg("systems"),
         pybind11::arg("names_of_used_systems"));
   m.def("run_hessian_task", &run<Readuct::HessianTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
   m.def("run_freq_task", &run<Readuct::HessianTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
-  m.def("run_transition_state_optimization_task", &run<Readuct::TSOptimizationTask>, pybind11::arg("systems"),
+  m.def("run_transition_state_optimization_task", &run<Readuct::TsOptimizationTask>, pybind11::arg("systems"),
         pybind11::arg("names_of_used_systems"));
-  m.def("run_tsopt_task", &run<Readuct::TSOptimizationTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
-  m.def("run_irc_task", &run<Readuct::IRCTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
-  m.def("run_afir_task", &run<Readuct::AFIROptimizationTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
+  m.def("run_tsopt_task", &run<Readuct::TsOptimizationTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
+  m.def("run_irc_task", &run<Readuct::IrcTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
+  m.def("run_afir_task", &run<Readuct::AfirOptimizationTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"));
+  m.def("run_bspline_task", &run<Readuct::BSplineInterpolationTask>, pybind11::arg("systems"),
+        pybind11::arg("names_of_used_systems"));
 }

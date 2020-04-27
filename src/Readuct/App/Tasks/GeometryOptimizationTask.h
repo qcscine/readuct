@@ -11,9 +11,10 @@
 #include "Tasks/Task.h"
 /* Scine */
 #include <Utils/GeometryOptimization/GeometryOptimizer.h>
-#include <Utils/IO/ChemicalFileFormats/XYZStreamHandler.h>
+#include <Utils/IO/ChemicalFileFormats/XyzStreamHandler.h>
 #include <Utils/IO/Yaml.h>
-#include <Utils/Optimizer/GradientBased/LBFGS.h>
+#include <Utils/Optimizer/GradientBased/Bfgs.h>
+#include <Utils/Optimizer/GradientBased/Lbfgs.h>
 #include <Utils/Optimizer/GradientBased/SteepestDescent.h>
 #include <Utils/Optimizer/HessianBased/NewtonRaphson.h>
 /* std c++ */
@@ -32,7 +33,7 @@ class GeometryOptimizationTask : public Task {
     return "Geometry Optimization";
   }
 
-  virtual void run(std::map<std::string, std::shared_ptr<Core::Calculator>>& systems, const YAML::Node& taskSettings) const final {
+  virtual bool run(std::map<std::string, std::shared_ptr<Core::Calculator>>& systems, const YAML::Node& taskSettings) const final {
     // Get/Copy Calculator
     std::shared_ptr<Core::Calculator> calc;
     if (systems.find(_input[0]) != systems.end()) {
@@ -43,7 +44,7 @@ class GeometryOptimizationTask : public Task {
     }
 
     // Generate optimizer
-    std::string optimizertype = "LBFGS";
+    std::string optimizertype = "BFGS";
     auto settingsCopy = taskSettings;
     if (auto type = settingsCopy["optimizer"]) {
       optimizertype = type.as<std::string>();
@@ -52,7 +53,18 @@ class GeometryOptimizationTask : public Task {
     std::transform(optimizertype.begin(), optimizertype.end(), optimizertype.begin(), ::toupper);
     std::unique_ptr<Utils::GeometryOptimizerBase> optimizer;
     if (optimizertype == "LBFGS") {
-      auto tmp = std::make_unique<Utils::GeometryOptimizer<Utils::LBFGS>>(*calc);
+      auto tmp = std::make_unique<Utils::GeometryOptimizer<Utils::Lbfgs>>(*calc);
+      // Default convergence options
+      tmp->check.maxIter = 150;
+      tmp->check.stepMaxCoeff = 2.0e-3;
+      tmp->check.stepRMS = 1.0e-3;
+      tmp->check.gradMaxCoeff = 2.0e-4;
+      tmp->check.gradRMS = 1.0e-4;
+      tmp->check.deltaValue = 1.0e-6;
+      optimizer = std::move(tmp);
+    }
+    else if (optimizertype == "BFGS") {
+      auto tmp = std::make_unique<Utils::GeometryOptimizer<Utils::Bfgs>>(*calc);
       // Default convergence options
       tmp->check.maxIter = 150;
       tmp->check.stepMaxCoeff = 2.0e-3;
@@ -87,7 +99,14 @@ class GeometryOptimizationTask : public Task {
     }
     else {
       throw std::runtime_error(
-          "Unknown Optimizer requested for a geometry optimization, available are: SD, NR and LBFGS!");
+          "Unknown Optimizer requested for a geometry optimization, available are: SD, NR, BFGS and LBFGS!");
+    }
+
+    // Read and delete special setttings
+    bool allowUnconverged = false;
+    if (auto m = settingsCopy["allow_unconverged"]) {
+      allowUnconverged = m.as<bool>();
+      settingsCopy.remove("allow_unconverged");
     }
     // Apply settings
     auto settings = optimizer->getSettings();
@@ -96,10 +115,10 @@ class GeometryOptimizationTask : public Task {
     // Add observer
     int counter = 0;
     // Trajectory stream
-    Utils::XYZStreamHandler writer;
+    Utils::XyzStreamHandler writer;
     boost::filesystem::path dir(((_output.size() > 0) ? _output[0] : _input[0]));
     boost::filesystem::create_directory(dir);
-    boost::filesystem::path trjfile(((_output.size() > 0) ? _output[0] : _input[0]) + ".opt.trj");
+    boost::filesystem::path trjfile(((_output.size() > 0) ? _output[0] : _input[0]) + ".opt.trj.xyz");
     std::ofstream trajectory((dir / trjfile).string(), std::ofstream::out);
     double oldEnergy = 0.0;
     Eigen::VectorXd oldParams;
@@ -127,8 +146,12 @@ class GeometryOptimizationTask : public Task {
     if (maxiter > cycles) {
       std::cout << std::endl << "    Converged after " << cycles << " iterations." << std::endl << std::endl;
     }
+    else if (allowUnconverged) {
+      std::cout << std::endl << "    Stopped after " << maxiter << " iterations." << std::endl << std::endl;
+    }
     else {
       std::cout << std::endl << "    Stopped after " << maxiter << " iterations." << std::endl << std::endl;
+      throw std::runtime_error("Problem: Structure optimization did not converge.");
     }
 
     // Print/Store results
@@ -147,6 +170,9 @@ class GeometryOptimizationTask : public Task {
       writer.write(xyz, *structure);
       xyz.close();
     }
+    if (cycles >= maxiter)
+      return false;
+    return true;
   }
 };
 

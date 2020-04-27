@@ -3,14 +3,53 @@ set(READUCT_APP_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/Task.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/GeometryOptimizationTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/TaskFactory.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/AFIROptimizationTask.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/TSOptimizationTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/BondOrderTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/AfirOptimizationTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/TsOptimizationTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/HessianTask.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/IRCTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/IrcTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/SinglePointTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/BSplineInterpolationTask.h
+)
+set(READUCT_ELEMENTARY_STEP_OPTIMIZATION_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/ReactionPathCostCalculator.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/IntegratingCostCalculator.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/CostCalculatorEditor.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/CommonTerms.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/ElasticPathEditor.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/ElasticPath.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/EnergyEditor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/Energy.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/ElasticPathEditor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/ElasticPath.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/CostCombinerEditor.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/ReaductDefault.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/ReaductDefault.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/EnergyEditor.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/Energy.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/CostCombiner.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/CommonTerms.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/CostCalculators/IntegratingCostCalculator.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/ElementaryStepOptimizer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/ElementaryStepOptimizerSettings.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/BinaryArrayIO.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/BinaryArrayIO.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/TypeConverter.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/TypeConverter.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/RecurringProfileCalculator.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/RecurringProfileCalculator.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/ReactionProfile.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/ProfileEnergies.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/PointSequence.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/EnergiesAndGradientsAlongSpline.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/BSplineProfileCalculator.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/BSplineProfileCalculator.cpp
 )
 set(READUCT_PYTHON_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/Python/PythonModule.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/Python/SystemPython.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/Python/TasksPython.cpp
+)
+set(READUCT_TEST_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ElementaryStepOptimization/CommonTermsTest.cpp
 )

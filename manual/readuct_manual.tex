@@ -12,8 +12,8 @@
 
 %%
 % Book metadata
-\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 1.0.0}}
-\author[The SCINE ReaDuct Developers]{The SCINE ReaDuct Developers: \newline \noindent Christoph Brunken, Jan Unsleber, Alain Vaucher, and Markus Reiher}
+\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 2.0.0}}
+\author[The SCINE ReaDuct Developers]{The SCINE ReaDuct Developers: \newline \noindent Christoph Brunken, Miguel Steiner, Jan Unsleber, Alain Vaucher, Thomas Weymuth, and Markus Reiher}
 \publisher{ETH Z\"urich}
 
 %%
@@ -227,7 +227,8 @@ chemical software.
 SCINE \textsc{ReaDuct} is a command-line tool that allows to carry out structure optimizations, transition state searches
 and intrinsic reaction coordinate (IRC) calculations among other things.
 For these calculations, it relies on a backend program to provide the necessary quantum chemical properties (such
-as nuclear gradients). Currently, SCINE \textsc{Sparrow}\cite{sparrow} and \textsc{Orca}\cite{orca} are supported as backend programs.
+as nuclear gradients). Currently, SCINE \textsc{Sparrow}\cite{sparrow}, \textsc{Gaussian}\cite{gaussian09}, and ORCA\cite{orca} 
+are supported as backend programs.
 
 In this manual, we describe the installation of the software, an example calculation as a hands-on 
 introduction to the program, and the most import functions and options.\footnote{Throughout this manual, the most 
@@ -245,11 +246,10 @@ Visit our website (\href{https://scine.ethz.ch/download/readuct}{www.scine.ethz.
 
 \section{System Requirements}
 
-\textsc{ReaDuct} can be used on any computer with a 64-bit x86 architecture. The software itself has only modest requirements
-regarding the hardware performance. However, the underlying quantum-chemical calculations might become resource intensive 
-if extremely large systems are studied. We advise to first explore the software with the fast semiempirical methods provided 
-in \textsc{ReaDuct}. This allows one to quickly understand what to expect from the software rather than being confused by 
-possibly long times waiting for more invovled quantum chemical calculations to finish.
+\textsc{ReaDuct} itself has only modest requirements regarding the hardware performance. However, the underlying quantum-chemical 
+calculations might become resource intensive if extremely large systems are studied. We advise to first explore the software with 
+the fast semiempirical methods provided in \textsc{ReaDuct}. This allows one to quickly understand what to expect from the software 
+rather than being confused by possibly long times waiting for more involved quantum chemical calculations to finish.
 
 
 
@@ -290,7 +290,24 @@ In case you need support with the setup of \textsc{ReaDuct}, please contact us b
 \textsc{ReaDuct} is a command-line-only binary; there is no graphical user interface. Therefore, you always work with the
 \textsc{ReaDuct} binary on a command line such as the Gnome Terminal or KDE Konsole.
 
-All functionality is accessed via an input file following the YAML syntax. 
+Almost all functionality is accessed via an input file following the YAML syntax. The program is then run with the
+command
+
+\begin{verbatim}
+readuct <input file>
+\end{verbatim}
+
+where you have to give the actual filename of your input file for \texttt{<input file>}.
+
+You can specify the verbosity of the log messages printed with the command line option \texttt{-l} or \texttt{-{}-log}. For
+example, to only see log messages of ``warning'' severity and higher, you run readuct with the command
+
+\begin{verbatim}
+readuct -l warning <input file>
+\end{verbatim}
+
+By default, the log severity is set to \texttt{info}. Available values are: \texttt{none}, \texttt{trace}, \texttt{debug}, \texttt{info}, \texttt{warning},
+\texttt{error} and \texttt{fatal}.
 
 
 \section{General Structure of the Input File}
@@ -302,6 +319,7 @@ systems:
   - name: [system name]
     path: [path to coordinates file]
     program: [program name]
+    method_family: [method_family name]
     method: [method name]
     settings:
       [settings key]: [settings value]
@@ -320,9 +338,10 @@ tasks:
 There are two major blocks, namely a \texttt{systems} block and a \texttt{tasks} block. You can define multiple systems
 in the \texttt{systems} block and multiple tasks in the \texttt{tasks} block (see also section \nameref{sec:task_chaining}).
 
-A system is a combination of nuclear coordinates (given as an XYZ file) and a calculation program (such as SCINE \textsc{Sparrow}
-or ORCA) and method (such as PM6). Depending on the program and method used, different settings (such as molecular charge, spin
-multiplicity, and convergence thresholds) can be given. A task specifies that a certain calculation type (such as a
+A system is a combination of nuclear coordinates (given as an XYZ file), a calculation program (such as SCINE \textsc{Sparrow}
+or ORCA), a method family (such as DFT) and an actual method (such as PBE0). Depending on the program and method used,
+different settings (such as molecular charge, spin multiplicity, and convergence thresholds) can be given.
+A task specifies that a certain calculation type (such as a
 structure optimization) should be carried out with a given (input) system. Different tasks can have different settings.
 For every task, an output system can be assigned to be used in further tasks (for instance, the output system of a
 structure optimization task contains the optimized nuclear coordinates).
@@ -334,7 +353,7 @@ systems:
   - name: 'water'
     path: 'h2o.xyz'
     program: 'Sparrow'
-    method: 'PM6'
+    method_family: 'PM6'
     settings:
       molecular_charge: 0
       spin_multiplicity: 1
@@ -344,12 +363,12 @@ tasks:
     input: ['water']
     output: ['water_opt']
     settings:
-      optimizer: 'lbfgs'
+      optimizer: 'bfgs'
 \end{verbatim}
 
 This specifies a system named \texttt{water}, the nuclear coordinates are given by the XYZ file \texttt{h2o.xyz}. Any 
 calculation performed on this system will use the PM6 method provided by SCINE \textsc{Sparrow}. For this system, a
-structure optimization will be carried out; the structure will be optimized with the L-BFGS algorithm\cite{lbfgs}.
+structure optimization will be carried out; the structure will be optimized with the Broyden--Fletcher--Goldfarb--Shanno (BFGS) algorithm.
 
 
 \section{Supported Programs and Methods}
@@ -361,9 +380,10 @@ as described in section~\nameref{ch:installation}, it will be automatically down
 at compile time.
 
 In order to use SCINE \textsc{Sparrow} with \textsc{ReaDuct}, specify \texttt{program: 'Sparrow'} in the respective system
-block and the desired calculation method (such as \texttt{'PM6'}) in the \texttt{method} key. All options supported by \textsc{Sparrow} 
-can be defined in the settings block. See the \textsc{Sparrow} manual for a complete list of these options (the option 
-names are identical to the command line option names of the \textsc{Sparrow} standalone binary).
+block and the desired calculation method or method family (such as \texttt{'PM6'}) in the \texttt{method\_family} key.
+All semiempirical methods are considered their own family of methods.
+All options supported by \textsc{Sparrow} can be defined in the settings block. See the \textsc{Sparrow} manual for a complete
+list of these options (the option names are identical to the command line option names of the \textsc{Sparrow} standalone binary).
 
 \subsection{ORCA}
 
@@ -372,29 +392,67 @@ types and/or settings which do not work. Also, we cannot guarantee compatibility
 4.1.0 since we have no control over the output format of an external program. If you encounter any problems when
 using ORCA together with \textsc{ReaDuct}, please write a short message to \href{scine@phys.chem.ethz.ch}{scine@phys.chem.ethz.ch}.
 
-In order to use ORCA with \textsc{ReaDuct}, specify \texttt{program: 'OSUtils'} and \texttt{method: 'ORCA'} in 
-the respective system block. You can specify the following settings in the settings block:
+In order to use ORCA with \textsc{ReaDuct}, specify \texttt{program: 'ORCA'} in the respective system block and the desired
+calculation method family and method (e.g., 'DFT' and 'PBE') in the \texttt{method\_family} and \texttt{method} key.
+Note that the name of the functional should match the string used in a typical ORCA input file.
+
+The path to the ORCA binary must be set via the environment variable \texttt{ORCA\_BINARY\_PATH}.
+
+You can specify the following settings in the settings block:
 \begin{itemize}
 \item \texttt{molecular\_charge}: This specifies the molecular charge. It can take on values between -10 and 10; by default,
 it is zero.
 \item \texttt{spin\_multiplicity}: This specifies the spin multiplicity. It can take on values between 1 and 10; by default,
 it is 1.
-\item \texttt{orca\_method}: This specifies the method string. By default, it is \texttt{PBE def2-SVP}, \textit{i.e.,} a
-DFT calculation with the PBE exchange--correlation functional and the def2-SVP basis set is carried out. You can specify
-any valid ORCA method string (see the ORCA manual for a complete list).
+\item \texttt{basis\_set}: This specifies the basis set string. By default, it is \texttt{'def2-SVP'}. You can specify
+any valid ORCA basis set string (see the ORCA manual for a complete list).
 \item \texttt{self\_consistence\_criterion}: The threshold to which the electronic energy should be converged (given in
-hartree). By default, it is 10\textsuperscript{$-$6}\,hartree.
+hartree). By default, it is \texttt{1.0e-6} (\textit{i.e.}, 10\textsuperscript{$-$6}\,hartree).
+\item \texttt{max\_scf\_iterations}: The maximum number of SCF iterations allowed by ORCA. By default, it is 100.
 \item \texttt{orca\_nprocs}: The number of processors to use in the ORCA calculations. By default, it is one, \textit{i.e.},
 a serial calculation is carried out. Note that you have to specify the full ORCA binary path in case you want to do a
-parallel calculation (see below).
-\item \texttt{orca\_binary\_path}: This is used to specify the path to the ORCA binary. By default, this is set to
-``orca'', \textit{i.e.}, this option need not be specified if ORCA is in your path and you want to do a serial
-calculation (\texttt{orca\_nprocs: 1}). For a parallel calculation, you have to specify the full (absolute) path to
-your ORCA binary here.
+parallel calculation.
+\item \texttt{external\_program\_memory}: The total amount of memory in MB that should be available for ORCA to use.
+By default set to \texttt{1024}.
 \item \texttt{orca\_filename\_base}: This specifies the basic filename (prefix) used for all files related to the ORCA calculations.
 By default, it is set to ``orca\_calc''; therefore, the generated input file will be named ``orca\_calc.inp''.
 \item \texttt{base\_working\_directory}: This specifies the directory in which the files for the ORCA calculations will
 be stored. By default, this is set to the current directory. For each ORCA calculation a new directory will be
+created inside the directory specified by \texttt{base\_working\_directory} to keep the files related to that specific
+calculation.
+\item \texttt{delete\_tmp\_files}: Whether temporary files (i.e., all files with a ".tmp" extension) should be deleted in case 
+the calculation fails. By default, this is set to \texttt{true}.
+\end{itemize}
+
+\subsection{\textsc{Gaussian}}
+
+\textbf{Important note:} Support for \textsc{Gaussian}\cite{gaussian09} is currently not fully tested. There might be specific calculation
+types and/or settings which do not work. Also, we cannot guarantee compatibility with any \textsc{Gaussian} version different from
+09 Rev. D01 since we have no control over the output format of an external program. If you encounter any problems when
+using \textsc{Gaussian} together with \textsc{ReaDuct}, please write a short message to \href{scine@phys.chem.ethz.ch}{scine@phys.chem.ethz.ch}.
+
+In order to use \textsc{Gaussian} with \textsc{ReaDuct}, specify \texttt{program: 'GAUSSIAN'} in the respective system block and the desired
+calculation method family and method (e.g., \texttt{'DFT'} and \texttt{'PBEPBE'}) in the \texttt{method\_family} and \texttt{method} key.
+Note that the name of the functional should match the string used in a typical \textsc{Gaussian} input file.
+
+The path to the \textsc{Gaussian} binary must be set via the environment variable \texttt{GAUSSIAN\_BINARY\_PATH}.
+
+You can specify the following settings in the settings block:
+\begin{itemize}
+\item \texttt{molecular\_charge}: This specifies the molecular charge. It can take on values between -10 and 10; by default,
+it is zero.
+\item \texttt{spin\_multiplicity}: This specifies the spin multiplicity. It can take on values between 1 and 10; by default,
+it is 1.
+\item \texttt{basis\_set}: This specifies the basis set string. By default, it is \texttt{'def2SVP'}. You can specify
+any valid \textsc{Gaussian} basis set string (see the \textsc{Gaussian} manual for a complete list).
+\item \texttt{gaussian\_nprocs}: The number of processors to use in the \textsc{Gaussian} calculations. By default, it is one, \textit{i.e.},
+a serial calculation is carried out.
+\item \texttt{external\_program\_memory}: The total amount of memory in MB that should be available for GAUSSIAN to use.
+By default set to \texttt{1024}.
+\item \texttt{gaussian\_filename\_base}: This specifies the basic filename (prefix) used for all files related to the GAUSSIAN calculations.
+By default, it is set to ``gaussian\_calc''; therefore, the generated input file will be named ``gaussian\_calc.inp''.
+\item \texttt{base\_working\_directory}: This specifies the directory in which the files for the \textsc{Gaussian} calculations will
+be stored. By default, this is set to the current directory. For each \textsc{Gaussian} calculation a new directory will be
 created inside the directory specified by \texttt{base\_working\_directory} to keep the files related to that specific
 calculation.
 \end{itemize}
@@ -406,13 +464,23 @@ calculation.
 
 The single point task can be used to obtain the electronic energy of a given system. In order to carry out this task,
 specify any of the following in the respective task block: \texttt{type: 'single\_point'}, \texttt{type: 'singlepoint'},
-\texttt{type: 'sp'}, or \texttt{type: 'energy'}.
+\texttt{type: 'sp'}, or \texttt{type: 'energy'}. The single point task will print partial atomic charges if the given
+model provides any. If charges are required the keyword \texttt{'require\_charges': true} can be given in the tasks
+settings. In this case the program will abort if a method that does not provide charges is requested.
+
+\subsection{Bond Order Analysis}
+
+Depending on the chosen method it is possible to generate Mayer bond orders for a given system. In order to carry out this task,
+specify any of the following in the respective task block: \texttt{type: 'bond\_orders'}, \texttt{type: 'bondorders'}, 
+\texttt{type: 'bonds'}, \texttt{type: 'bos'}, or \texttt{type: 'bo'}.
+This task also generates and states the electronic energy.
 
 \subsection{Hessian Calculation}
 
-This task calculates the Hessian of a given system and outputs the vibrational frequencies. In order to carry out this task,
-specify any of the following in the respective task block: \texttt{type: 'hessian'}, \texttt{type: 'frequency\_analysis'},
-\texttt{type: 'frequencyanalysis'}, \texttt{type: 'frequencies'}, \texttt{type: 'frequency'}, or \texttt{type: 'freq'}.
+This task calculates the Hessian of a given system and outputs the vibrational frequencies as well as thermochemical data. 
+In order to carry out this task, specify any of the following in the respective task block: \texttt{type: 'hessian'}, 
+\texttt{type: 'frequency\_analysis'}, \texttt{type: 'frequencyanalysis'}, \texttt{type: 'frequencies'}, \texttt{type: 'frequency'}, 
+or \texttt{type: 'freq'}.
 
 \subsection{Structure Optimization}
 
@@ -423,28 +491,43 @@ order to carry out this task, specify any of the following in the respective tas
 The task works without the specification of any additional settings; the default settings work usually fine. However,
 if desired, the following settings can always be set:
 \begin{itemize}
-\item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'lbfgs'} for the L-BFGS algorithm,
+\item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'bfgs'} for the BFGS algorithm including
+G-DIIS, \texttt{'lbfgs'} for the L-BFGS algorithm,
 \texttt{'steepestdescent'} or \texttt{'sd'} for a steepest descent algorithm, and \texttt{'newtonraphson'} or \texttt{'nr'} for
-a Newton--Raphson algorithm. By default, it is set to \texttt{'lbfgs'}.
+a Newton--Raphson algorithm. By default, it is set to \texttt{'bfgs'}.
 \item \texttt{convergence\_step\_max\_coefficient}: The convergence threshold for the maximum absolute element of the last step taken.
-By default set to \texttt{1.0e-4}.
+By default set to \texttt{2.0e-3}.
 \item \texttt{convergence\_step\_rms}: The convergence threshold for the root mean square of the last step taken. By default set to 
-\texttt{5.0e-4}.
+\texttt{1.0e-3}.
 \item \texttt{convergence\_gradient\_max\_coefficient}: The convergence threshold for the maximum absolute element of the gradient. 
-By default set to \texttt{5.0e-5}.
+By default set to \texttt{2.0e-4}.
 \item \texttt{convergence\_gradient\_rms}: The convergence threshold for the root mean square of the gradient. By default set to 
-\texttt{1.0e-5}.
+\texttt{1.0e-4}.
 \item \texttt{convergence\_delta\_value}: The convergence threshold for the change in the functional value. By default set to
-\texttt{1.0e-7}.
-\item \texttt{convergence\_max\_iterations}: The maximum number of iterations. By default set to \texttt{100}.
+\texttt{1.0e-6}.
+\item \texttt{convergence\_max\_iterations}: The maximum number of iterations. By default set to \texttt{150}.
 \item \texttt{convergence\_requirement}: The number of criteria that have to converge besides the value criterion. This 
 has to be between \texttt{0} and \texttt{4}; by default it is set to \texttt{3}.
+\item \texttt{geoopt\_transform\_coordinates}: Transform the coordinates into internal ones and carry out the optimization
+in the internal coordinate system. This will first try to use redundant internal coordinates\cite{libirc} and fall back to the removal
+of translation and rotation if unsuccessful; by default it is set to \texttt{true}.
+\item \texttt{allow\_unconverged}: Allows the calculation to finish correctly even if the optimization did not 
+converge, \textit{i.e.}, no exception is thrown and the final result structure is stored anyways. By default it is set to \texttt{false}.
+\end{itemize}
+
+If you specified \texttt{optimizer: 'bfgs'}, you can also set the following options:
+\begin{itemize}
+\item \texttt{bfgs\_use\_gdiis}: Switch to enable the use of a G-DIIS possibly accelerating convergence. By default set to 
+\texttt{true}.
+\item \texttt{bfgs\_gdiis\_max\_store}: The maximum number of old steps used in the G-DIIS. By default set to \texttt{5}.
+\item \texttt{bfgs\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{false}.
+\item \texttt{bfgs\_trust\_radius}: The maximum size of a taken step. By default set to \texttt{0.1}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'lbfgs'}, you can also set the following options:
 \begin{itemize}
 \item \texttt{lbfgs\_maxm}: The number of parameters and gradients from previous iterations to keep. By default set to 
-\texttt{50}.
+\texttt{10}.
 \item \texttt{lbfgs\_linesearch}: Whether to use a line search or not. By default set to \texttt{true}.
 \item \texttt{lbfgs\_c1}: The first parameter of the Wolfe conditions. This option is only relevant if line search is
 used (see above). By default set to \texttt{0.0001}.
@@ -477,37 +560,75 @@ The task works without the specification of any additional settings; the default
 if desired, the following settings can always be set:
 \begin{itemize}
 \item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'bofill'} for Bofill's algorithm\cite{bofill1, bofill2},
-or any of \texttt{'eigenvector\_following'}, \texttt{'eigenvectorfollowing'}, \texttt{evf}, or \texttt{ev} for a 
-eigenvector following algorithm. By default, it is set to \texttt{'bofill'}.
+or any of \texttt{'eigenvector\_following'}, \texttt{'eigenvectorfollowing'}, \texttt{ef}, \texttt{evf}, or \texttt{ev} for a 
+eigenvector following algorithm, or \texttt{'dimer'} for the Dimer algorithm~\cite{dimer1,dimer2,dimer3}. By default, it is set to \texttt{'bofill'}.
 \item \texttt{convergence\_step\_max\_coefficient}: The convergence threshold for the maximum absolute element of the last step taken.
-By default set to \texttt{1.0e-4}.
+By default set to \texttt{2.0e-3}.
 \item \texttt{convergence\_step\_rms}: The convergence threshold for the root mean square of the last step taken. By default set to 
-\texttt{5.0e-4}.
+\texttt{1.0e-3}.
 \item \texttt{convergence\_gradient\_max\_coefficient}: The convergence threshold for the maximum absolute element of the gradient. 
-By default set to \texttt{5.0e-5}.
+By default set to \texttt{2.0e-4}.
 \item \texttt{convergence\_gradient\_rms}: The convergence threshold for the root mean square of the gradient. By default set to 
-\texttt{1.0e-5}.
+\texttt{1.0e-4}.
 \item \texttt{convergence\_delta\_value}: The convergence threshold for the change in the functional value. By default set to
-\texttt{1.0e-7}.
-\item \texttt{convergence\_max\_iterations}: The maximum number of iterations. By default set to \texttt{100}.
+\texttt{1.0e-6}.
+\item \texttt{convergence\_max\_iterations}: The maximum number of iterations. By default set to \texttt{150}.
 \item \texttt{convergence\_requirement}: The number of criteria that have to converge besides the value criterion 
 (\texttt{convergence\_delta\_value}). This has to be between \texttt{0} and \texttt{4}; by default it is set to \texttt{3}.
+\item \texttt{allow\_unconverged}: Allows the calculation to finish correctly even if the optimization did not 
+converge, \textit{i.e.}, no exception is thrown and the final result structure is stored anyways. By default it is set to \texttt{false}.
 \end{itemize}
 
-If you specified \texttt{optimizer: 'bofill'}, you can also set the following option:
+If you specified \texttt{optimizer: 'bofill'}, you can also set the following options:
 \begin{itemize}
 \item \texttt{bofill\_trust\_radius}: The maximum root mean square of a taken step. By default set to \texttt{0.1}.
+\item \texttt{bofill\_hessian\_update}: The number of iterations using the Bofill update scheme in between full hessian calculations. 
+By default set to \texttt{5}.
 \end{itemize}
 
-If you specified \texttt{optimizer: 'eigenvector\_following'}, \texttt{'eigenvectorfollowing'}, \texttt{evf}, or \texttt{ev}, 
+If you specified \texttt{optimizer: 'eigenvector\_following'}, \texttt{'eigenvectorfollowing'}, \texttt{ef}, \texttt{evf}, or \texttt{ev}, 
 you can also set the following option:
 \begin{itemize}
-\item \texttt{ev\_trust\_radius}: The maximum root mean square of a taken step. By default set to \texttt{0.5}.
+\item \texttt{ev\_trust\_radius}: The maximum root mean square of a taken step. By default set to \texttt{0.1}.
+\end{itemize}
+
+If you specified \texttt{optimizer: 'dimer'}, you can also set the following options:
+\begin{itemize}
+\item Options to initialize the dimer:
+\begin{itemize}
+\item \texttt{dimer\_calculate\_hessian\_once}: Calculate the Hessian matrix in the beginning to create the dimer along the lowest frequency eigenvector and skip first rotation. By default set to \texttt{false}.
+\item \texttt{dimer\_guess\_vector\_file}: File name in which a row vector is stored. It will be read and used as a guess for the dimer axis. By default the dimer is still rotated before the first translation. The B-Spline task allows to write out the tangent at the maximum of the spline for this purpose (see below). 
+\item \texttt{dimer\_discrete\_guesses}: Calculate the vector between two structures given as XYZ files to create the dimer. A list of file names of structures has to be provided. This vector then forms the dimer axis. By default the dimer is rotated before the first translation.
+
+If none of these three options is given, a random vector is used for the initialization of the dimer. If more than one of these three options is set, only one will be used, because there can only be one dimer axis. The options will be preferred according to the above list from top to bottom.
+\end{itemize}
+\item \texttt{dimer\_skip\_first\_rotation}: Skip the first rotation. Recommended if a very reliable guess vector is available. By default set to \texttt{false}. If the option to calculate the hessian for the first step was set to \texttt{true}, this option is automatically set to \texttt{true}.
+\item \texttt{dimer\_decrease\_rotation\_gradient\_threshold}: Option to decrease the threshold for the gradient in the rotation after certain number of cycles. By default set to \texttt{false}.
+\item \texttt{dimer\_gradient\_interpolation}: Option to estimate the gradient during the rotation~\cite{dimer2}. By default set to \texttt{false}.
+\item \texttt{dimer\_only\_one\_rotation}: Only rotate the dimer in the first step. By default set to \texttt{false}.
+\item \texttt{dimer\_rotation\_lbfgs}: Option to use L-BFGS in the rotation. By default set to \texttt{true} and automatically set to \texttt{false} if \texttt{dimer\_rotation\_conjugate\_gradient} is set. If both are set to false, a steepest descent is performed.
+\item \texttt{dimer\_rotation\_conjugate\_gradient}: Option to use conjugate gradient method in the rotation. By default set to \texttt{false}.
+\item \texttt{dimer\_projection\_trust\_radius}: Option to use a stepsize scaling based on the change of projection of the modified force onto the dimer axis in the translation step. By default set to \texttt{true} and automatically set to \texttt{false} if \texttt{dimer\_gdiis} is set. If both are set to false, a steepest descent is performed.
+\item \texttt{dimer\_gdiis}: Option to use G-DIIS in the translation. This uses a stepsize scaling based on the change of the projection of the modified force onto the dimer axis. By default set to \texttt{false}.
+\item \texttt{dimer\_multi\_scale}: Option to apply step size scaling onto the scaled step of the previous step. By default set to \texttt{true}.
+\item \texttt{dimer\_radius}: Radius of the dimer. By default set to \texttt{0.01}.
+\item \texttt{dimer\_phi\_tolerance}: Threshold for convergence of rotation with $\phi$ method~\cite{dimer2}. By default set to \texttt{1.0e-3}.
+\item \texttt{dimer\_rotation\_gradient\_first}: Threshold for convergence of rotation in the first cycle. By default set to \texttt{1.0e-7}.
+\item \texttt{dimer\_rotation\_gradient\_other}: Threshold for convergence of rotation in all cycles but the first. By default set to \texttt{1.0e-4}.
+\item \texttt{dimer\_lowered\_rotation\_gradient}: Threshold for convergence of rotation, if lowered by \texttt{dimer\_decrease\_rotation\_gradient\_threshold}. By default set to \texttt{1.0e-3}.
+\item \texttt{dimer\_grad\_rmsd\_threshold}: Threshold for applying stepsize scaling. By default set to \texttt{1.0e-3}.
+\item \texttt{dimer\_trust\_radius}: The maximum root mean square of a taken step. By default set to \texttt{0.5}.
+\item \texttt{dimer\_default\_translation\_step}: Scaling factor for steepest descent translation. By default set to \texttt{1.0}.
+\item \texttt{dimer\_max\_rotations\_first\_cycle}: Maximum number of allowed individual rotations in first rotation. By default set to \texttt{100}.
+\item \texttt{dimer\_max\_rotations\_other\_cycle}: Maximum number of allowed individual rotations in all rotations except the first. By default set to \texttt{100}.
+\item \texttt{dimer\_interval\_of\_rotations}: Number of translation steps after which it is checked whether a rotation should be performed. By default set to \texttt{5}.
+\item \texttt{dimer\_cycle\_of\_rotation\_gradient\_decrease}: Number of rotation cycles after which the rotation gradient threshold is decreased. By default set to \texttt{5}.
+\item \texttt{dimer\_max\_backtracking}: Number of saved steps in L-BFGS. By default set to \texttt{5}.
 \end{itemize}
 
 \subsection{Intrinsic Reaction Coordinate Calculation}
 
-This task is used to an intrinsic reaction coordinate (IRC) calculation. In 
+This task is used to perform an intrinsic reaction coordinate (IRC) calculation. In 
 order to carry out this task, specify any of the following in the respective task block: \texttt{type: 'ircopt'}, 
 or \texttt{type: 'irc'}. Note that for this task you have to specify two output systems. The first one will contain
 the results of the forward IRC calculation while the second on will contain the result of the backward IRC calculation.
@@ -521,27 +642,43 @@ You usually want to set the following settings:
 The task works without the specification of any additional settings; the default settings work usually fine. However,
 if desired, the following settings can always be set:
 \begin{itemize}
-\item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'lbfgs'} for the L-BFGS algorithm, and
-\texttt{'steepestdescent'} or \texttt{'sd'} for a steepest descent algorithm. By default, it is set to \texttt{'lbfgs'}.
+\item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'bfgs'} for the BFGS algorithm including
+G-DIIS, \texttt{'lbfgs'} for the L-BFGS algorithm, and
+\texttt{'steepestdescent'} or \texttt{'sd'} for a steepest descent algorithm. By default, it is set to \texttt{'sd'}.
 \item \texttt{convergence\_step\_max\_coefficient}: The convergence threshold for the maximum absolute element of the last step taken.
-By default set to \texttt{1.0e-4}.
+By default set to \texttt{5.0e-3}.
 \item \texttt{convergence\_step\_rms}: The convergence threshold for the root mean square of the last step taken. By default set to 
-\texttt{5.0e-4}.
+\texttt{1.0e-3}.
 \item \texttt{convergence\_gradient\_max\_coefficient}: The convergence threshold for the maximum absolute element of the gradient. 
-By default set to \texttt{5.0e-5}.
+By default set to \texttt{5.0e-4}.
 \item \texttt{convergence\_gradient\_rms}: The convergence threshold for the root mean square of the gradient. By default set to 
-\texttt{1.0e-5}.
+\texttt{1.0e-4}.
 \item \texttt{convergence\_delta\_value}: The convergence threshold for the change in the functional value. By default set to
-\texttt{1.0e-7}.
-\item \texttt{convergence\_max\_iterations}: The maximum number of iterations. By default set to \texttt{100}.
+\texttt{1.0e-6}.
+\item \texttt{convergence\_max\_iterations}: The maximum number of iterations. By default set to \texttt{150}.
 \item \texttt{convergence\_requirement}: The number of criteria that have to converge besides the value criterion. This 
 must be between \texttt{0} and \texttt{4}; by default it is set to \texttt{3}.
+\item \texttt{irc\_transform\_coordinates}: Transform the coordinates into internal ones and carry out the optimization
+in the internal coordinate system. This will first try to use redundant internal coordinates\cite{libirc} and fall back to the removal
+of translation and rotation if unsuccessful; by default it is set to \texttt{true}.
+\item \texttt{allow\_unconverged}: Allows the calculation to finish correctly even if the optimization did not 
+converge, \textit{i.e.}, no exception is thrown and the final result structures are stored anyways. Especially 
+when using a SD type optimizer this option can be helpful. By default it is set to \texttt{false}.
+\end{itemize}
+
+If you specified \texttt{optimizer: 'bfgs'}, you can also set the following options:
+\begin{itemize}
+\item \texttt{bfgs\_use\_gdiis}: Switch to enable the use of a G-DIIS possibly accelerating convergence. By default set to 
+\texttt{true}.
+\item \texttt{bfgs\_gdiis\_max\_store}: The maximum number of old steps used in the G-DIIS. By default set to \texttt{5}.
+\item \texttt{bfgs\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{false}.
+\item \texttt{bfgs\_trust\_radius}: The maximum size of a taken step. By default set to \texttt{0.1}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'lbfgs'}, you can also set the following options:
 \begin{itemize}
 \item \texttt{lbfgs\_maxm}: The number of parameters and gradients from previous iterations to keep. By default set to 
-\texttt{50}.
+\texttt{10}.
 \item \texttt{lbfgs\_linesearch}: Whether to use a line search or not. By default set to \texttt{true}.
 \item \texttt{lbfgs\_c1}: The first parameter of the Wolfe conditions. This option is only relevant if line search is
 used (see above). By default set to \texttt{0.0001}.
@@ -561,7 +698,8 @@ If you specified \texttt{optimizer: 'steepestdescent'} or \texttt{optimizer: 'sd
 
 This task is used in order to do an artificial force induced reaction (AFIR\cite{afir1, afir2}) calculation. In 
 order to carry out this task, specify any of the following in the respective task block: \texttt{type: 'afir\_optimization'}, 
-\texttt{type: 'afiroptimization'}, \texttt{type: 'afiropt'}, or \texttt{type: 'afir'}.
+\texttt{type: 'afiroptimization'}, \texttt{type: 'afiropt'}, or \texttt{type: 'afir'}. The energy given in the output
+includes the artifical force term.
 
 You usually want to set the following settings:
 \begin{itemize}
@@ -581,31 +719,100 @@ default set to \texttt{false}.
 \item \texttt{afir\_energy\_allowance}: The maximum amount of energy to be added by the artifical force, in kJ/mol.
 By default set to \texttt{1000}.
 \item \texttt{afir\_phase\_in}: The number of steps over which the full attractive force is gradually applied. By default
-set to \texttt{100}.
+set to \texttt{30}.
 \item \texttt{afir\_transform\_coordinates}: Whether to transform the coordinates from a Cartesian basis into an internal 
 space. By default set to \texttt{true}.
-\item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'lbfgs'} for the L-BFGS algorithm, and
-\texttt{'steepestdescent'} or \texttt{'sd'} for a steepest descent algorithm. By default, it is set to \texttt{'lbfgs'}.
+\item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'bfgs'} for the BFGS algorithm including
+G-DIIS, \texttt{'lbfgs'} for the L-BFGS algorithm, and
+\texttt{'steepestdescent'} or \texttt{'sd'} for a steepest descent algorithm. By default, it is set to \texttt{'bfgs'}.
 \item \texttt{convergence\_step\_max\_coefficient}: The convergence threshold for the maximum absolute element of the last step taken.
-By default set to \texttt{1.0e-4}.
+By default set to \texttt{2.0e-3}.
 \item \texttt{convergence\_step\_rms}: The convergence threshold for the root mean square of the last step taken. By default set to 
-\texttt{5.0e-4}.
+\texttt{1.0e-3}.
 \item \texttt{convergence\_gradient\_max\_coefficient}: The convergence threshold for the maximum absolute element of the gradient. 
-By default set to \texttt{5.0e-5}.
+By default set to \texttt{2.0e-4}.
 \item \texttt{convergence\_gradient\_rms}: The convergence threshold for the root mean square of the gradient. By default set to 
-\texttt{1.0e-5}.
+\texttt{1.0e-4}.
 \item \texttt{convergence\_delta\_value}: The convergence threshold for the change in the functional value. By default set to
-\texttt{1.0e-7}.
-\item \texttt{convergence\_max\_iterations}: The maximum number of iterations. By default set to \texttt{100}.
+\texttt{1.0e-6}.
+\item \texttt{convergence\_max\_iterations}: The maximum number of iterations. By default set to \texttt{150}.
 \item \texttt{convergence\_requirement}: The number of criteria that have to converge besides the value criterion. This 
 has to be between \texttt{0} and \texttt{4}; by default it is set to \texttt{3}.
+\item \texttt{allow\_unconverged}: Allows the calculation to finish correctly even if the optimization did not 
+converge, \textit{i.e.}, no exception is thrown and the final result structure is stored anyways. By default it is set to \texttt{false}.
+\end{itemize}
+
+If you specified \texttt{optimizer: 'bfgs'}, you can also set the following options:
+\begin{itemize}
+\item \texttt{bfgs\_use\_gdiis}: Switch to enable the use of a G-DIIS possibly accelerating convergence. By default set to 
+\texttt{true}.
+\item \texttt{bfgs\_gdiis\_max\_store}: The maximum number of old steps used in the G-DIIS. By default set to \texttt{5}.
+\item \texttt{bfgs\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{true}.
+\item \texttt{bfgs\_trust\_radius}: The maximum size of a taken step. By default set to \texttt{0.1}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'lbfgs'}, you can also set the following options:
 \begin{itemize}
 \item \texttt{lbfgs\_maxm}: The number of parameters and gradients from previous iterations to keep. By default set to 
-\texttt{50}.
+\texttt{10}.
 \item \texttt{lbfgs\_linesearch}: Whether to use a line search or not. By default set to \texttt{true}.
+\item \texttt{lbfgs\_c1}: The first parameter of the Wolfe conditions. This option is only relevant if line search is
+used (see above). By default set to \texttt{0.0001}.
+\item \texttt{lbfgs\_c2}:  The second parameter of the Wolfe conditions. This option is only relevant if line search is
+used (see above). By default set to \texttt{0.9}.
+\item \texttt{lbfgs\_step\_length}: The initial step length. By default set to \texttt{1.0}.
+\item \texttt{lbfgs\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{true}.
+\item \texttt{lbfgs\_trust\_radius}: The maximum size of a taken step. By default set to \texttt{0.1}.
+\end{itemize}
+
+If you specified \texttt{optimizer: 'steepestdescent'} or \texttt{optimizer: 'sd'}, you can also set the following options:
+\begin{itemize}
+\item \texttt{sd\_factor}: The scaling factor to be used in the steepest descent algorithm. By default set to \texttt{0.1}.
+\end{itemize}
+
+\subsection{B-Spline Interpolation and Optimization}
+
+This task is used in order to approximate a reaction path between a given start and end structure by means of an
+interpolation based on B-splines\cite{bsplines}. This interpolated path can be optimized to yield a better approximation
+to the true reaction path. Furthermore, from the optimized path, a guess for the transition state structure can be
+extracted. In order to carry out this task, specify any of the following in the respective task block: \texttt{type: 'bspline\_interpolation'}, 
+\texttt{type: 'bsplineinterpolation'}, or \texttt{type: 'bspline'}.
+
+The task works without the specification of any additional settings; the default settings work usually fine. However,
+if desired, the following settings can always be set:
+\begin{itemize}
+\item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'lbfgs'} for the L-BFGS algorithm, and
+\texttt{'steepestdescent'} or \texttt{'sd'} for a steepest descent algorithm. By default, it is set to \texttt{'lbfgs'}.
+\item \texttt{optimize}: Whether the interpolated path should be optimized. By default set to \texttt{true}.
+\item \texttt{trajectory\_guess}: A list of possibly concatenated XYZ files that should be added as data points when interpolating
+the initial spline. The files may, but do not need to, include the start and end structures as first and last structure.
+\item \texttt{extract\_ts\_guess}:  Whether a guess for the transition state structure should be extracted from the optimized
+path. By default set to \texttt{false}. If set to true, the structure is written into the file \texttt{<output\_name>\_tsguess.xyz}.
+\item \texttt{extract\_threshold}: Specifies the threshold for the extraction of the maximum energy structure from a 
+reaction profile. For the extraction, the part of the spline around its maximum is discretized to five grid points. These
+points are refined until the energy difference between the two points neighboring the point with maximal energy is less 
+than two times this threshold. By default this threshold is set to \texttt{1e-3} (hartree).
+\item \texttt{extract\_ts\_guess\_neighbours}: Whether the structures before and after the transition state structure should be 
+extracted from the optimized path. By default set to \texttt{false}. If set to true, the structures are written into the file 
+\texttt{<output\_name>\_tsguess-1.xyz} and  \texttt{<output\_name>\_tsguess+1.xyz}.
+\item \texttt{tangent\_file}: The name of the file in which the tangent of the spline at the TS guess will be stored as a row vector. 
+This can be used for a single ended TS optimization. If a relative path is given, it is interpreted relative to the output directory 
+of the B-spline interpolation task. By default no tangent is written out.
+\item \texttt{align\_structures}: Whether to remove the overall rotation and translation of the end structure. By 
+default set to \texttt{true}.
+\item \texttt{num\_control\_points}: The number of control points for the B-spline representing the reaction path. This number 
+is directly proportional to the number of parameters to optimize. By default set to \texttt{5}.
+\item \texttt{num\_integration\_points}: The number of integration points used during the optimization of the B-spline.
+A higher number of integration points increases the accuracy but also the computational cost. By default set to \texttt{21}.
+\item \texttt{num\_structures}: Sets the number of structures into which a reaction path is discretized for the final
+output (\textit{i.e.,} when writing it to a XYZ trajectory file). By default set to \texttt{10}.
+\end{itemize}
+
+If you specified \texttt{optimizer: 'lbfgs'}, you can also set the following options:
+\begin{itemize}
+\item \texttt{lbfgs\_maxm}: The number of parameters and gradients from previous iterations to keep. By default set to 
+\texttt{10}.
+\item \texttt{lbfgs\_linesearch}: Whether to use a line search or not. By default set to \texttt{false}.
 \item \texttt{lbfgs\_c1}: The first parameter of the Wolfe conditions. This option is only relevant if line search is
 used (see above). By default set to \texttt{0.0001}.
 \item \texttt{lbfgs\_c2}:  The second parameter of the Wolfe conditions. This option is only relevant if line search is
@@ -619,6 +826,7 @@ If you specified \texttt{optimizer: 'steepestdescent'} or \texttt{optimizer: 'sd
 \begin{itemize}
 \item \texttt{sd\_factor}: The scaling factor to be used in the steepest descent algorithm. By default set to \texttt{0.1}.
 \end{itemize}
+
 
 \section{Task Chaining}
 \label{sec:task_chaining}
@@ -653,10 +861,11 @@ when running cmake (see also chapter~\nameref{ch:installation}).
 In order to use the Python bindings, you need to specify the path to the Python library in the environment variable
 \texttt{PYTHONPATH}, \textit{e.g.}, you have to run the command
 \begin{verbatim}
-export PYTHONPATH=$PYTHONPATH:<source code directory>/install/lib
+export PYTHONPATH=$PYTHONPATH:<source code directory>/install/lib/python<version>/site-packages
 \end{verbatim}
-Now, you can simply import the library and use it as any other Python library. For example, in order to carry out a 
-structure optimization, you could use the following Python script:
+where \texttt{<version>} is the Python version you are using (\textit{e.g.}, 3.6). Now, you can simply import the library 
+and use it as any other Python library. For example, in order to carry out a structure optimization, you could use the 
+following Python script:
 \begin{verbatim}
 import scine_readuct
 
@@ -666,9 +875,11 @@ system1 = scine_readuct.load_system('h2o.xyz', 'PM6', program='Sparrow',
 systems = {}
 systems['water'] = system1
 
-task1 = scine_readuct.run_opt_task(systems, ['water'], output=['water_opt'], 
-                                   optimizer='lbfgs')
-systems['water_opt'].positions
+systems, success = scine_readuct.run_opt_task(systems, ['water'], output=['water_opt'], 
+                                   optimizer='bfgs')
+
+if success:
+    systems['water_opt'].positions
 \end{verbatim}
 Note that we use a dictionary called ``systems'' to store all systems we deal with in one central data
 structure. As second argument, the structure optimization task accepts a list of the systems which should be optimized,
@@ -686,8 +897,7 @@ help(scine_readuct)
 
 \chapter{Extensions Planned in Future Releases}
 \begin{itemize}
-\item Interfaces to other quantum chemical packages such as \textsc{Gaussian} and \textsc{Serenity}\cite{serenity}
-\item Implementation of B-Spline optimization of transition state structures\cite{bsplines}
+\item Interfaces to other quantum chemical packages such as \textsc{Serenity}\cite{serenity}
 \end{itemize}
 
 

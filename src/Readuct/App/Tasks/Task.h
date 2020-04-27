@@ -26,11 +26,11 @@ namespace Readuct {
  */
 class Task {
  public:
-  Task(std::vector<std::string> input, std::vector<std::string> output) : _input(input), _output(output) {
+  Task(const std::vector<std::string>& input, const std::vector<std::string>& output) : _input(input), _output(output) {
   }
 
   virtual std::string name() const = 0;
-  virtual void run(std::map<std::string, std::shared_ptr<Core::Calculator>>& systems, const YAML::Node& taskSettings) const = 0;
+  virtual bool run(std::map<std::string, std::shared_ptr<Core::Calculator>>& systems, const YAML::Node& taskSettings) const = 0;
 
   const std::vector<std::string>& input() const {
     return _input;
@@ -40,8 +40,8 @@ class Task {
   };
 
  protected:
-  std::vector<std::string> _input;
-  std::vector<std::string> _output;
+  const std::vector<std::string> _input;
+  const std::vector<std::string> _output;
 };
 
 } // namespace Readuct

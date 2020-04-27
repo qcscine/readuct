@@ -7,13 +7,15 @@
 #ifndef READUCT_TASKFACTORY_H_
 #define READUCT_TASKFACTORY_H_
 
-#include "Tasks/AFIROptimizationTask.h"
+#include "Tasks/AfirOptimizationTask.h"
+#include "Tasks/BSplineInterpolationTask.h"
+#include "Tasks/BondOrderTask.h"
 #include "Tasks/GeometryOptimizationTask.h"
 #include "Tasks/HessianTask.h"
-#include "Tasks/IRCTask.h"
+#include "Tasks/IrcTask.h"
 #include "Tasks/SinglePointTask.h"
-#include "Tasks/TSOptimizationTask.h"
 #include "Tasks/Task.h"
+#include "Tasks/TsOptimizationTask.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -45,21 +47,27 @@ class TaskFactory {
       task = std::make_unique<GeometryOptimizationTask>(input, output);
     }
     else if (name == "AFIR" || name == "AFIROPT" || name == "AFIROPTIMIZATION" || name == "AFIR_OPTIMIZATION") {
-      task = std::make_unique<AFIROptimizationTask>(input, output);
+      task = std::make_unique<AfirOptimizationTask>(input, output);
     }
     else if (name == "TS" || name == "TSOPT" || name == "TRANSITIONSTATE_OPTIMIZATION" ||
              name == "TRANSITION_STATE_OPTIMIZATION") {
-      task = std::make_unique<TSOptimizationTask>(input, output);
+      task = std::make_unique<TsOptimizationTask>(input, output);
     }
     else if (name == "SP" || name == "SINGLEPOINT" || name == "ENERGY" || name == "SINGLE_POINT") {
       task = std::make_unique<SinglePointTask>(input, output);
     }
     else if (name == "IRC" || name == "IRCOPT") {
-      task = std::make_unique<IRCTask>(input, output);
+      task = std::make_unique<IrcTask>(input, output);
     }
     else if (name == "HESSIAN" || name == "FREQUENCY_ANALYSIS" || name == "FREQUENCYANALYSIS" || name == "FREQ" ||
              name == "FREQUENCY" || name == "FREQUENCIES") {
       task = std::make_unique<HessianTask>(input, output);
+    }
+    else if (name == "BONDS" || name == "BOND_ORDERS" || name == "BONDORDERS" || name == "BOS" || name == "BO") {
+      task = std::make_unique<BondOrderTask>(input, output);
+    }
+    else if (name == "BSPLINE_INTERPOLATION" || name == "BSPLINEINTERPOLATION" || name == "BSPLINE") {
+      task = std::make_unique<BSplineInterpolationTask>(input, output);
     }
     else {
       throw std::runtime_error("The requested task '" + name + "' is not available.\n");

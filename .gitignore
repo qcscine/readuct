@@ -14,3 +14,16 @@ tmp_clang_*
 compile_commands.json
 .lvimrc
 *.vim
+
+# manual output
+manual/readuct_manual.aux
+manual/readuct_manual.bbl
+manual/readuct_manual.blg
+manual/readuct_manual.idx
+manual/readuct_manual.log
+manual/readuct_manual.out
+manual/readuct_manual.pdf
+manual/readuct_manual.toc
+manual/readuct_manual.tex.backup
+manual/readuct_manual.ind
+manual/readuct_manual.ilg

@@ -12,7 +12,13 @@
 #include <Core/ModuleManager.h>
 #include <Utils/Geometry.h>
 #include <Utils/IO/ChemicalFileFormats/ChemicalFileHandler.h>
+#include <Utils/IO/Logger.h>
 #include <Utils/IO/Yaml.h>
+
+/* Boost program arguments */
+#include "boost/filesystem.hpp"
+#include "boost/program_options.hpp"
+
 /* C++ std */
 #include <iostream>
 #include <map>
@@ -27,12 +33,44 @@ int main(int argc, char* argv[]) {
   // Initialize global map for all systems (name - their calculators)
   std::map<std::string, std::shared_ptr<Core::Calculator>> systems;
 
-  // Load input file
-  if (argc < 2) {
-    std::cout << "No input file given as argument, exiting." << std::endl;
+  namespace po = boost::program_options;
+
+  // Arguments
+  po::options_description optionsDescription("Recognized options");
+  optionsDescription.add_options()("help,h", "Produce this help message")(
+      "log,l", po::value<std::string>()->default_value("info"),
+      "Sets the logging verbosity level")("config,c", po::value<std::string>(), "YAML input file to read");
+
+  po::variables_map optionsMap;
+  po::positional_options_description positionalDescription;
+  positionalDescription.add("config", 1);
+  positionalDescription.add("log", 1);
+  po::store(po::command_line_parser(argc, argv)
+                .options(optionsDescription)
+                .positional(positionalDescription)
+                .style(po::command_line_style::unix_style | po::command_line_style::allow_long_disguise)
+                .run(),
+            optionsMap);
+  po::notify(optionsMap);
+
+  // Handle help
+  if (optionsMap.count("help") > 0 || optionsMap.count("config") == 0) {
+    std::cout << optionsDescription << std::endl;
     return 1;
   }
-  auto input = YAML::LoadFile(argv[1]);
+
+  // Load input file
+  const std::string filename = optionsMap["config"].as<std::string>();
+  if (!boost::filesystem::exists(filename)) {
+    std::cout << "Specified config file does not exist!\n";
+    return 1;
+  }
+
+  auto input = YAML::LoadFile(filename);
+
+  // Handle logging
+  const std::string loggingVerbosity = optionsMap["log"].as<std::string>();
+  Utils::Log::startConsoleLogging(loggingVerbosity);
 
   // Header
   std::cout << R"(#=============================================================================#)" << std::endl;
@@ -58,17 +96,17 @@ int main(int argc, char* argv[]) {
       return 1;
     }
     std::string name = current["name"].as<std::string>();
-    if (!current["method"]) {
-      std::cout << "A method is missing for the system: '" << name << "'.\n";
+    if (!current["method_family"]) {
+      std::cout << "A method_family is missing for the system: '" << name << "'.\n";
       return 1;
     }
-    std::string method = current["method"].as<std::string>();
+    std::string method_family = current["method_family"].as<std::string>();
     if (!current["path"]) {
       std::cout << "An input path is missing for the system: '" << name << "'.\n";
       return 1;
     }
     std::string path = current["path"].as<std::string>();
-    std::string program = "";
+    std::string program;
     if (auto node = current["program"]) {
       program = current["program"].as<std::string>();
     }
@@ -77,16 +115,21 @@ int main(int argc, char* argv[]) {
     // Generate Calculator
     std::shared_ptr<Core::Calculator> calc;
     try {
-      calc = manager.get<Core::Calculator>(method, program);
+      for (auto& x : program)
+        x = std::tolower(x);
+      program[0] = std::toupper(program[0]);
+      for (auto& x : method_family)
+        x = std::toupper(x);
+      calc = manager.get<Core::Calculator>(Core::Calculator::supports(method_family), program);
     }
     catch (...) {
       if (program.empty()) {
-        std::cout << "No SCINE module providing '" << method << "' is currently loaded.\n";
+        std::cout << "No SCINE module providing '" << method_family << "' is currently loaded.\n";
         std::cout << "Please add the module to the SCINE_MODULE_PATH in order for it to be accessible.\n";
         return 1;
       }
       else {
-        std::cout << "No SCINE module named '" << program << "' providing '" << method << "' is currently loaded.\n";
+        std::cout << "No SCINE module named '" << program << "' providing '" << method_family << "' is currently loaded.\n";
         std::cout << "Please add the module to the SCINE_MODULE_PATH in order for it to be accessible.\n";
         return 1;
       }
@@ -110,6 +153,10 @@ int main(int argc, char* argv[]) {
     // Parse inputs
     std::vector<std::string> inputs;
     auto inputnames = current["input"];
+    if (inputnames.size() == 0) {
+      std::cout << "Missing system (input name) in task " + type + "\n";
+      return 1;
+    }
     for (size_t i = 0; i < inputnames.size(); i++) {
       inputs.push_back(inputnames[i].as<std::string>());
     }
@@ -152,13 +199,13 @@ int main(int argc, char* argv[]) {
   for (size_t i = 0; i < tasks.size(); i++) {
     auto name = tasks[i]->name();
     printf("  #============#    #==%s==#\n", std::string(name.size(), '=').c_str());
-    printf("  |  Task %3d  |    |  %s  |\n", i + 1, name.c_str());
+    printf("  |  Task %3d  |    |  %s  |\n", static_cast<int>(i + 1), name.c_str());
     printf("  #============#    #==%s==#\n", std::string(name.size(), '=').c_str());
     std::cout << std::endl << std::endl;
-    auto inpt = tasks[i]->input();
-    auto outpt = tasks[i]->output();
+    const auto& inpt = tasks[i]->input();
+    const auto& outpt = tasks[i]->output();
 
-    std::cout << "  Input System(s):  " + inpt[0] << std::endl;
+    std::cout << "  Input System(s):  " + tasks[i]->input()[0] << std::endl;
     for (unsigned int i = 1; i < inpt.size(); i++) {
       std::cout << "                    " + inpt[i] << std::endl;
     }

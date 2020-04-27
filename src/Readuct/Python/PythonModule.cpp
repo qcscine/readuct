@@ -14,7 +14,7 @@ PYBIND11_MODULE(scine_readuct, m) {
   m.doc() = "Pybind11 Bindings for SCINE ReaDuct";
 
   // Requires other modules to function properly
-  auto utils = pybind11::module::import("scine_utils_os");
+  auto utils = pybind11::module::import("scine_utilities");
 
   init_system(m);
   init_tasks(m);
