@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory for Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
@@ -44,7 +44,6 @@ void RecurringProfileCalculator::calculateEnergies(const Utils::BSplines::BSplin
   assert(static_cast<int>(energies.size()) == pointCount());
 
   for (int i = 0; i < pointCount(); ++i) {
-    initializeDensity(i, spline);
     injectDensity(i);
     profileCalculator_.calculateEnergy(spline, pointSequence()[i], energies[i]);
     saveDensity(i);
@@ -62,7 +61,6 @@ void RecurringProfileCalculator::calculateEnergiesAndGradients(const Utils::BSpl
   assert(static_cast<int>(gradients.size()) == pointCount());
 
   for (int i = 0; i < pointCount(); ++i) {
-    initializeDensity(i, spline);
     injectDensity(i);
     profileCalculator_.calculateEnergyAndGradients(spline, pointSequence()[i], energies[i], gradients[i]);
     saveDensity(i);
@@ -78,7 +76,6 @@ void RecurringProfileCalculator::calculateUpToSecondDerivative(const Utils::BSpl
   assert(static_cast<int>(hessians.size()) == pointCount());
 
   for (int i = 0; i < pointCount(); ++i) {
-    initializeDensity(i, spline);
     injectDensity(i);
     profileCalculator_.calculateUpToSecondDerivatives(spline, pointSequence()[i], energies[i], gradients[i], hessians[i]);
     saveDensity(i);
@@ -92,17 +89,8 @@ void RecurringProfileCalculator::calculateEnergyAndGradients(const Utils::BSplin
 
 void RecurringProfileCalculator::injectDensity(int index) {
   assert(0 <= index && index < pointCount());
-  calculator_.loadState(densities_[index]);
-}
-
-void RecurringProfileCalculator::initializeDensity(int index, const Utils::BSplines::BSpline& spline) {
-  assert(0 <= index && index < pointCount());
-  if (densities_[index] == nullptr) {
-    auto atoms = calculator_.getStructure();
-    auto positions = profileCalculator_.positionsForUValue(spline, valuesAlongSpline_.uValues[index]);
-    atoms->setPositions(positions);
-    calculator_.setStructure(*atoms);
-    densities_[index] = calculator_.getState();
+  if (densities_[index] != nullptr) {
+    calculator_.loadState(densities_[index]);
   }
 }
 

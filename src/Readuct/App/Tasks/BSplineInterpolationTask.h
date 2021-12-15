@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory for Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #ifndef READUCT_BSPLINEINTERPOLATIONTASK_H_
@@ -10,9 +10,9 @@
 #include "../../Readuct/ElementaryStepOptimization/ElementaryStepOptimizer.h"
 #include "../../Readuct/ElementaryStepOptimization/ReactionProfile.h"
 #include "Tasks/Task.h"
+#include <Utils/CalculatorBasics/Results.h>
 #include <Utils/IO/ChemicalFileFormats/ChemicalFileHandler.h>
 #include <Utils/IO/MolecularTrajectoryIO.h>
-#include <Utils/IO/Yaml.h>
 #include <Utils/Math/BSplines/FixedEndsPenalizedLeastSquaresGenerator.h>
 #include <Utils/Math/BSplines/InterpolationGenerator.h>
 #include <Utils/Math/BSplines/LinearInterpolator.h>
@@ -21,6 +21,7 @@
 #include <Utils/MolecularTrajectory.h>
 #include <Utils/Optimizer/GradientBased/Lbfgs.h>
 #include <Utils/Optimizer/GradientBased/SteepestDescent.h>
+#include <boost/filesystem.hpp>
 #include <fstream>
 
 namespace Scine {
@@ -28,171 +29,145 @@ namespace Readuct {
 
 class BSplineInterpolationTask : public Task {
  public:
-  BSplineInterpolationTask(std::vector<std::string> input, std::vector<std::string> output) : Task(input, output) {
+  /**
+   * @brief Construct a new BSplineInterpolationTask.
+   * @param input  The input system names for the task.
+   * @param output The output system names for the task.
+   * @param logger The logger to/through which all text output will be handled.
+   */
+  BSplineInterpolationTask(std::vector<std::string> input, std::vector<std::string> output,
+                           std::shared_ptr<Core::Log> logger = nullptr)
+    : Task(std::move(input), std::move(output), std::move(logger)) {
   }
 
   std::string name() const override {
     return "BSpline Interpolation";
   }
 
-  virtual bool run(std::map<std::string, std::shared_ptr<Core::Calculator>>& systems, const YAML::Node& taskSettings) const final {
-    // Get/Copy Calculator
-    std::shared_ptr<Core::Calculator> calc;
-    if (systems.find(_input[0]) != systems.end()) {
-      calc = std::shared_ptr<Core::Calculator>(systems.at(_input[0])->clone().release());
+  bool run(std::map<std::string, std::shared_ptr<Core::Calculator>>& systems,
+           Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
+    if (_input.size() != 2) {
+      throw std::logic_error("The B-Spline task needs two input systems.");
     }
-    else {
-      throw std::runtime_error("Missing system '" + _input[0] + "' in BSpline interpolation.");
+    warningIfMultipleOutputsGiven();
+
+    // Read and set user-specified settings
+    alignStructuresBeforeInterpolation_ = taskSettings.extract("align_structures", alignStructuresBeforeInterpolation_);
+    numberStructuresForMolecularTrajectory_ = taskSettings.extract("num_structures", numberStructuresForMolecularTrajectory_);
+    optimize_ = taskSettings.extract("optimize", optimize_);
+    numberControlPointsForInterpolation_ = taskSettings.extract("num_control_points", numberControlPointsForInterpolation_);
+    optimizer_ = taskSettings.extract("optimizer", optimizer_);
+    std::transform(optimizer_.begin(), optimizer_.end(), optimizer_.begin(), ::tolower);
+    extractTsGuess_ = taskSettings.extract("extract_ts_guess", extractTsGuess_);
+    extractTsGuessNeighbours_ = taskSettings.extract("extract_ts_guess_neighbours", extractTsGuessNeighbours_);
+    tangentFileName_ = taskSettings.extract("tangent_file", tangentFileName_);
+    coordinateThresholdForMaximumExtraction_ =
+        taskSettings.extract("extract_threshold", coordinateThresholdForMaximumExtraction_);
+
+    // If no errors encountered until here, the basic settings should be alright
+    if (testRunOnly) {
+      return true; // leave out rest in case of task chaining
+    }
+
+    // Note: _input is guaranteed not to be empty by Task constructor
+    auto calc = copyCalculator(systems, _input.front(), name());
+    auto secondCalculator = systems.at(_input.back());
+    if (calc->settings() != secondCalculator->settings()) {
+      _logger->warning
+          << "  Warning: The given systems have different settings. Only taking first and ignoring second.\n";
     }
 
     // Get inputs
-    auto start = systems.at(_input[0])->getStructure();
-    auto end = systems.at(_input[1])->getStructure();
-
+    auto start = calc->getStructure();
+    auto end = secondCalculator->getStructure();
     if (start->getElements() != end->getElements()) {
-      throw std::runtime_error("The given structures do not have the same element types.");
+      throw std::logic_error("The provided structures have different elements. Impossible to find path between them.");
+    }
+
+    // Check system size
+    if (start->size() == 1) {
+      throw std::runtime_error("Cannot perform " + name() + " for monoatomic systems.");
     }
 
     Utils::MolecularTrajectory trajectoryGuess = Utils::MolecularTrajectory();
-    // Read and set user-specified settings
-    auto settingsCopy = taskSettings;
-    if (auto type = settingsCopy["align_structures"]) {
-      alignStructuresBeforeInterpolation_ = type.as<bool>();
-      settingsCopy.remove("align_structures");
-    }
-    if (auto type = settingsCopy["num_structures"]) {
-      numberStructuresForMolecularTrajectory_ = type.as<int>();
-      settingsCopy.remove("num_structures");
-    }
-    if (auto type = settingsCopy["optimize"]) {
-      optimize_ = type.as<bool>();
-      settingsCopy.remove("optimize");
-    }
-    if (auto type = settingsCopy["num_control_points"]) {
-      numberControlPointsForInterpolation_ = type.as<int>();
-      settingsCopy.remove("num_control_points");
-    }
-    if (auto type = settingsCopy["optimizer"]) {
-      optimizer_ = type.as<std::string>();
-      settingsCopy.remove("optimizer");
-    }
-    if (auto type = settingsCopy["extract_ts_guess"]) {
-      extractTsGuess_ = type.as<bool>();
-      settingsCopy.remove("extract_ts_guess");
-    }
-    if (auto type = settingsCopy["extract_ts_guess_neighbours"]) {
-      extractTsGuessNeighbours_ = type.as<bool>();
-      settingsCopy.remove("extract_ts_guess_neighbours");
-    }
-    if (auto type = settingsCopy["tangent_file"]) {
-      tangentFileName_ = type.as<std::string>();
-      extractTangent_ = true;
-      settingsCopy.remove("tangent_file");
-    }
-    if (auto type = settingsCopy["extract_threshold"]) {
-      coordinateThresholdForMaximumExtraction_ = type.as<double>();
-      settingsCopy.remove("extract_threshold");
-    }
-    if (auto type = settingsCopy["trajectory_guess"]) {
-      std::vector<std::string> paths = type.as<std::vector<std::string>>();
-      for (int i = 0; i < paths.size(); ++i) {
-        Utils::MolecularTrajectory traj = readTrajectory(paths.at(i));
-        for (int j = 0; j < traj.size(); ++j) {
-          trajectoryGuess.push_back(traj.at(j));
+    trajectoryGuess.setElementTypes(start->getElements());
+    if (taskSettings.valueExists("trajectory_guess")) {
+      std::vector<std::string> paths = taskSettings.getStringList("trajectory_guess");
+      for (unsigned long i = 0; i < paths.size(); ++i) {
+        Utils::MolecularTrajectory traj = readTrajectory(paths[i]);
+        if (traj.getElementTypes() != trajectoryGuess.getElementTypes()) {
+          throw std::logic_error("The provided trajectory guess no. " + std::to_string(i) +
+                                 " has different elements than the provided input structures.");
+        }
+        for (auto& step : traj) {
+          trajectoryGuess.push_back(step);
         }
       }
-      settingsCopy.remove("trajectory_guess");
+      taskSettings.dropValue("trajectory_guess");
     }
 
     // Interpolate between start and end structure
-    printf("  Interpolating Reaction Path\n");
+    auto cout = _logger->output;
+    cout << "  Interpolating Reaction Path\n";
     ElementaryStepOptimization::ReactionProfile interpolatedProfile = interpolateElementaryStep(*start, *end, trajectoryGuess);
     Utils::MolecularTrajectory interpolatedTrajectory = convertProfileToTrajectory(interpolatedProfile);
     // Print/Store results
-    Utils::XyzStreamHandler writer;
-    boost::filesystem::path dir(((_output.size() > 0) ? _output[0] : _input[0]));
+    using Writer = Utils::ChemicalFileHandler;
+    const std::string& outputSystem = ((!_output.empty()) ? _output[0] : _input[0]);
+    boost::filesystem::path dir(outputSystem);
     boost::filesystem::create_directory(dir);
-    if (_output.size() > 0) {
-      systems[_output[0]] = calc;
-      boost::filesystem::path xyzfile(_output[0] + "_interpolated.xyz");
-      writeTrajectory(interpolatedTrajectory, (dir / xyzfile).string());
-    }
-    else {
-      systems[_input[0]] = calc;
-      boost::filesystem::path xyzfile(_input[0] + "_interpolated.xyz");
-      writeTrajectory(interpolatedTrajectory, (dir / xyzfile).string());
-    }
-    printf("  Interpolating Complete\n\n");
+    systems[outputSystem] = calc;
+    boost::filesystem::path xyzfile(outputSystem + "_interpolated.xyz");
+    writeTrajectory(interpolatedTrajectory, (dir / xyzfile).string());
+    cout << "  Interpolating Complete\n\n";
 
     // Optimize the interpolated path
     Utils::MolecularTrajectory optimizedTrajectory;
     ElementaryStepOptimization::ReactionProfile optimizedProfile;
+    bool converged = true;
     if (optimize_) {
-      printf("  Optimizing Reaction Path\n");
-      optimizedProfile = optimizeElementaryStep(interpolatedProfile, calc, settingsCopy);
+      cout << "  Optimizing Reaction Path\n";
+      auto result = optimizeElementaryStep(std::move(interpolatedProfile), calc, taskSettings);
+      optimizedProfile = result.first;
+      converged = result.second;
       optimizedTrajectory = convertProfileToTrajectory(optimizedProfile);
       // Output
-      if (_output.size() > 0) {
-        boost::filesystem::path xyzfile2(_output[0] + "_optimized.xyz");
-        writeTrajectory(optimizedTrajectory, (dir / xyzfile2).string());
-      }
-      else {
-        boost::filesystem::path xyzfile2(_input[0] + "_optimized.xyz");
-        writeTrajectory(optimizedTrajectory, (dir / xyzfile2).string());
-      }
-      printf("  Optimization Complete\n\n");
+      boost::filesystem::path xyzfile2(outputSystem + "_optimized.xyz");
+      writeTrajectory(optimizedTrajectory, (dir / xyzfile2).string());
+      std::string info = (converged) ? "Complete" : "Stopped";
+      cout << "  Optimization " + info + "\n\n";
     }
 
     std::vector<Utils::AtomCollection> tsGuess;
     if (optimize_ && extractTsGuess_) {
-      printf("  Extracting Transition State Guess\n");
+      cout << "  Extracting Transition State Guess\n";
       tsGuess = extractTransitionStateGuessStructure(optimizedProfile, calc, dir);
       // Output
-      if (_output.size() > 0) {
-        boost::filesystem::path xyzfile3(_output[0] + "_tsguess.xyz");
-        std::ofstream xyz((dir / xyzfile3).string(), std::ofstream::out);
-        writer.write(xyz, tsGuess.at(0));
-        xyz.close();
-        if (extractTsGuessNeighbours_) {
-          boost::filesystem::path xyzfile3_1(_output[0] + "_tsguess-1.xyz");
-          std::ofstream xyz_1((dir / xyzfile3_1).string(), std::ofstream::out);
-          writer.write(xyz_1, tsGuess.at(1));
-          xyz_1.close();
-          boost::filesystem::path xyzfile3_2(_output[0] + "_tsguess+1.xyz");
-          std::ofstream xyz_2((dir / xyzfile3_2).string(), std::ofstream::out);
-          writer.write(xyz_2, tsGuess.at(2));
-          xyz_2.close();
-        }
+      boost::filesystem::path xyzfile3 = dir / (outputSystem + "_tsguess.xyz");
+      Writer::write(xyzfile3.string(), tsGuess.at(0));
+
+      if (extractTsGuessNeighbours_) {
+        boost::filesystem::path xyzfile3_1 = dir / (outputSystem + "_tsguess-1.xyz");
+        Writer::write(xyzfile3_1.string(), tsGuess.at(1));
+
+        boost::filesystem::path xyzfile3_2 = dir / (outputSystem + "_tsguess+1.xyz");
+        Writer::write(xyzfile3_2.string(), tsGuess.at(2));
       }
-      else {
-        boost::filesystem::path xyzfile3(_input[0] + "_tsguess.xyz");
-        std::ofstream xyz((dir / xyzfile3).string(), std::ofstream::out);
-        writer.write(xyz, tsGuess.at(0));
-        xyz.close();
-        if (extractTsGuessNeighbours_) {
-          boost::filesystem::path xyzfile3_1(_input[0] + "_tsguess-1.xyz");
-          std::ofstream xyz_1((dir / xyzfile3_1).string(), std::ofstream::out);
-          writer.write(xyz_1, tsGuess.at(1));
-          xyz_1.close();
-          boost::filesystem::path xyzfile3_2(_input[0] + "_tsguess+1.xyz");
-          std::ofstream xyz_2((dir / xyzfile3_2).string(), std::ofstream::out);
-          writer.write(xyz_2, tsGuess.at(2));
-          xyz_2.close();
-        }
-      }
-      printf("  Extraction Complete\n\n");
+
+      cout << "  Extraction Complete\n\n";
     }
-    printf("\n");
-    return true;
+    cout << Core::Log::nl << Core::Log::endl;
+    return converged;
   }
 
  private:
   ElementaryStepOptimization::ReactionProfile
   interpolateElementaryStep(const Utils::AtomCollection& start, Utils::AtomCollection end,
                             Utils::MolecularTrajectory trajectoryGuess = Utils::MolecularTrajectory()) const {
+    auto cout = _logger->output;
     if (alignStructuresBeforeInterpolation_) {
       auto positionsToAlign = end.getPositions();
-      Utils::Geometry::alignPositions(start.getPositions(), positionsToAlign);
+      Utils::Geometry::Manipulations::alignPositions(start.getPositions(), positionsToAlign);
       end.setPositions(std::move(positionsToAlign));
     }
 
@@ -201,10 +176,13 @@ class BSplineInterpolationTask : public Task {
     Eigen::VectorXd endVector =
         Eigen::Map<const Eigen::VectorXd>(end.getPositions().data(), end.getPositions().cols() * end.getPositions().rows());
     Utils::BSplines::BSpline spline;
-    if (trajectoryGuess.empty())
+    if (trajectoryGuess.empty()) {
       spline = Utils::BSplines::LinearInterpolator::generate(startVector, endVector, numberControlPointsForInterpolation_);
+    }
     else {
-      assert(start.size() == trajectoryGuess.molecularSize());
+      if (start.size() != trajectoryGuess.molecularSize()) {
+        throw std::logic_error("The given trajectory guess has a different size than the given start system.");
+      }
       /* Remove frames from trajectory at end and beginning which are too similar to given endpoints */
       bool viableTrajectory = true;
       double rmsdThreshold = 1.0;
@@ -214,9 +192,10 @@ class BSplineInterpolationTask : public Task {
         if (fit.getRMSD() <= rmsdThreshold) {
           trajectoryGuess.erase(trajectoryGuess.begin());
           if (trajectoryGuess.empty()) {
-            std::cout << "ERROR, no viable trajectory guess provided, all frames are too similar to the endpoints, now "
-                         "performing linear interpolation"
-                      << std::endl;
+            _logger->warning
+                << "Warning: no viable trajectory guess provided, all frames are too similar to the endpoints, now "
+                   "performing linear interpolation."
+                << Core::Log::endl;
             viableTrajectory = false;
             stop = true;
           }
@@ -225,16 +204,18 @@ class BSplineInterpolationTask : public Task {
           stop = true;
         }
       }
-      if (viableTrajectory)
+      if (viableTrajectory) {
         stop = false;
+      }
       while (!stop) {
         Utils::QuaternionFit fit(end.getPositions(), trajectoryGuess.back());
         if (fit.getRMSD() <= rmsdThreshold) {
           trajectoryGuess.erase(trajectoryGuess.end());
           if (trajectoryGuess.empty()) {
-            std::cout << "ERROR, no viable trajectory guess provided, all frames are too similar to the endpoints, now "
-                         "performing linear interpolation"
-                      << std::endl;
+            _logger->warning
+                << "WARNING, no viable trajectory guess provided, all frames are too similar to the endpoints, now "
+                   "performing linear interpolation."
+                << Core::Log::endl;
             viableTrajectory = false;
             stop = true;
           }
@@ -266,13 +247,17 @@ class BSplineInterpolationTask : public Task {
     return profile;
   }
 
-  ElementaryStepOptimization::ReactionProfile
+  std::pair<ElementaryStepOptimization::ReactionProfile, bool>
   optimizeElementaryStep(ElementaryStepOptimization::ReactionProfile interpolatedProfile,
-                         std::shared_ptr<Core::Calculator> calculator, YAML::Node& settingsCopy) const {
-    std::unique_ptr<ElementaryStepOptimization::ElementaryStepOptimizerBase> optimizer;
+                         std::shared_ptr<Core::Calculator> calculator,
+                         Utils::UniversalSettings::ValueCollection& taskSettings) const {
+    auto cout = _logger->output;
+    // Read and delete special settings
+    bool stopOnError = stopOnErrorExtraction(taskSettings);
+    std::shared_ptr<ElementaryStepOptimization::ElementaryStepOptimizerBase> optimizer;
     if (optimizer_ == "steepestdescent" || optimizer_ == "sd") {
-      auto tmp = std::make_unique<ElementaryStepOptimization::ElementaryStepOptimizer<Utils::SteepestDescent>>(
-          *calculator, interpolatedProfile);
+      auto tmp = std::make_shared<ElementaryStepOptimization::ElementaryStepOptimizer<Utils::SteepestDescent>>(
+          *calculator, std::move(interpolatedProfile));
       // The original ReaDuct implementation's settings converted into the new form.
       tmp->check.requirement = 4;
       tmp->check.gradRMS = 1.0e-3;
@@ -283,8 +268,8 @@ class BSplineInterpolationTask : public Task {
       optimizer = std::move(tmp);
     }
     else if (optimizer_ == "lbfgs") {
-      auto tmp = std::make_unique<ElementaryStepOptimization::ElementaryStepOptimizer<Utils::Lbfgs>>(*calculator,
-                                                                                                     interpolatedProfile);
+      auto tmp = std::make_shared<ElementaryStepOptimization::ElementaryStepOptimizer<Utils::Lbfgs>>(
+          *calculator, std::move(interpolatedProfile));
       tmp->optimizer.linesearch = false;
       // The original ReaDuct implementation's settings converted into the new form.
       tmp->check.requirement = 4;
@@ -301,26 +286,46 @@ class BSplineInterpolationTask : public Task {
 
     // Apply user settings
     auto settings = optimizer->getSettings();
-    Scine::Utils::nodeToSettings(settings, settingsCopy);
+    settings.merge(taskSettings);
+    if (!settings.valid()) {
+      settings.throwIncorrectSettings();
+    }
     optimizer->setSettings(settings);
+    if (!Utils::GeometryOptimization::settingsMakeSense(*optimizer)) {
+      throw std::logic_error("The given calculator settings are too inaccurate for the given convergence criteria of "
+                             "this optimization Task");
+    }
 
-    int cycles = optimizer->optimize();
-    int maxiter = settings.getInt("convergence_max_iterations");
-    if (cycles >= maxiter)
-      throw std::runtime_error("Problem: Path optimization did not converge.");
-    printf("  Converged path after %d optimization cycles.\n", cycles);
+    const int cycles = optimizer->optimize();
+    const int maxiter = settings.getInt("convergence_max_iterations");
+
+    bool converged = cycles < maxiter;
+    if (converged) {
+      cout << Core::Log::endl
+           << "    Converged after " << cycles << " iterations." << Core::Log::endl
+           << Core::Log::endl;
+    }
+    else {
+      cout << Core::Log::endl
+           << "    Stopped after " << maxiter << " iterations." << Core::Log::endl
+           << Core::Log::endl;
+      if (stopOnError) {
+        throw std::runtime_error("Problem: Path optimization did not converge.");
+      }
+    }
     const auto& optimizedProfile = optimizer->getReactionProfile();
 
-    return optimizedProfile;
+    return std::make_pair(optimizedProfile, converged);
   }
 
   std::vector<Utils::AtomCollection> extractTransitionStateGuessStructure(ElementaryStepOptimization::ReactionProfile profile,
                                                                           std::shared_ptr<Core::Calculator> calculator,
-                                                                          boost::filesystem::path dir) const {
+                                                                          const boost::filesystem::path& dir) const {
+    auto cout = _logger->output;
     const auto& molecularSpline = profile.getMolecularSpline();
 
     // Generate an empty molecule with the correct element types
-    Utils::ElementTypeCollection ec = molecularSpline.getElements();
+    const Utils::ElementTypeCollection& ec = molecularSpline.getElements();
     Utils::PositionCollection pc(ec.size(), 3);
 
     calculator->setStructure(Utils::AtomCollection(ec, pc));
@@ -338,7 +343,7 @@ class BSplineInterpolationTask : public Task {
     }
 
     /* Write out tangent */
-    if (extractTangent_) {
+    if (!tangentFileName_.empty()) {
       Utils::BSplines::BSpline spline = molecularSpline.getBSpline();
       Utils::BSplines::BSpline derivative = spline.getDerivativeBSpline(1);
       Utils::BSplines::MolecularSpline molecularDerivative(ec, derivative);
@@ -361,16 +366,19 @@ class BSplineInterpolationTask : public Task {
     // if absolute path given by user, path is directly used
     // else the relative path is used relative to the general output of the calculation
     boost::filesystem::path tangentPath(tangentFileName_);
-    if (tangentFileName_.at(0) != '/')
+    if (tangentFileName_.at(0) != '/') {
       tangentPath = boost::filesystem::absolute(generalOutputDir / tangentFileName_);
+    }
     // create necessary directories for file if necessary
     boost::filesystem::path parent = tangentPath.parent_path();
-    if (!parent.empty())
+    if (!parent.empty()) {
       // does not give error if directories already exist
       boost::filesystem::detail::create_directories(parent);
+    }
     std::ofstream fout(tangentPath.string());
-    if (!fout.is_open())
+    if (!fout.is_open()) {
       throw std::runtime_error("Problem when opening/creating file: " + tangentPath.string());
+    }
     fout.imbue(std::locale("C"));
     for (int i = 0; i < tangent.size(); ++i) {
       fout << tangent.row(i) << '\n';
@@ -385,8 +393,8 @@ class BSplineInterpolationTask : public Task {
     return trajectory;
   }
 
-  Utils::MolecularTrajectory discretizeSpline(const Utils::ElementTypeCollection& elements,
-                                              const Utils::BSplines::BSpline& spline, int numberPoints) const {
+  static Utils::MolecularTrajectory discretizeSpline(const Utils::ElementTypeCollection& elements,
+                                                     const Utils::BSplines::BSpline& spline, int numberPoints) {
     Utils::MolecularTrajectory t;
     t.setElementTypes(elements);
     double deltaU = 1.0 / (numberPoints - 1);
@@ -399,13 +407,13 @@ class BSplineInterpolationTask : public Task {
     return t;
   }
 
-  void writeTrajectory(Utils::MolecularTrajectory trajectory, std::string filepath) const {
+  static void writeTrajectory(const Utils::MolecularTrajectory& trajectory, const std::string& filepath) {
     std::ofstream ostream(filepath, std::ofstream::out);
     Utils::MolecularTrajectoryIO::write(Utils::MolecularTrajectoryIO::format::xyz, ostream, trajectory);
     ostream.close();
   }
 
-  Utils::MolecularTrajectory readTrajectory(std::string filepath) const {
+  static Utils::MolecularTrajectory readTrajectory(const std::string& filepath) {
     Utils::MolecularTrajectory trajectory;
     std::filebuf fb;
     if (fb.open(filepath, std::istream::in)) {
@@ -416,9 +424,9 @@ class BSplineInterpolationTask : public Task {
     return trajectory;
   }
 
-  void getInitialValues(int& maxEnergyIndex, std::vector<double>& coordinates, std::vector<double>& energies,
-                        std::shared_ptr<Core::Calculator> calculator,
-                        const ElementaryStepOptimization::ReactionProfile& profile) const {
+  static void getInitialValues(int& maxEnergyIndex, std::vector<double>& coordinates, std::vector<double>& energies,
+                               std::shared_ptr<Core::Calculator> calculator,
+                               const ElementaryStepOptimization::ReactionProfile& profile) {
     const auto& profileEnergies = profile.getProfileEnergies();
     if (!profile.getProfileEnergies().empty()) {
       coordinates = profileEnergies.getCoordinates();
@@ -443,12 +451,12 @@ class BSplineInterpolationTask : public Task {
     }
   }
 
-  double pointDistance(const std::vector<double>& coordinates, int maxEnergyIndex) const {
+  static double pointDistance(const std::vector<double>& coordinates, int maxEnergyIndex) {
     double diff = coordinates[maxEnergyIndex + 1] - coordinates[maxEnergyIndex - 1];
     return diff / 2;
   }
 
-  std::vector<double> getNewCoordinates(const std::vector<double>& oldCoordinates, int maxEnergyIndex) const {
+  static std::vector<double> getNewCoordinates(const std::vector<double>& oldCoordinates, int maxEnergyIndex) {
     std::vector<double> u(5);
     u[0] = oldCoordinates[maxEnergyIndex - 1];
     u[2] = oldCoordinates[maxEnergyIndex];
@@ -458,9 +466,9 @@ class BSplineInterpolationTask : public Task {
     return u;
   }
 
-  std::vector<double> getNewEnergies(const std::vector<double>& oldEnergies, const std::vector<double>& coordinates,
-                                     int maxEnergyIndex, std::shared_ptr<Core::Calculator> calculator,
-                                     const Utils::BSplines::MolecularSpline& spline) const {
+  static std::vector<double> getNewEnergies(const std::vector<double>& oldEnergies, const std::vector<double>& coordinates,
+                                            int maxEnergyIndex, std::shared_ptr<Core::Calculator> calculator,
+                                            const Utils::BSplines::MolecularSpline& spline) {
     std::vector<double> e(5);
     e[0] = oldEnergies[maxEnergyIndex - 1];
     e[2] = oldEnergies[maxEnergyIndex];
@@ -475,7 +483,7 @@ class BSplineInterpolationTask : public Task {
     return e;
   }
 
-  int getIndexForMaxEnergyAndCheckValidity(const std::vector<double>& energies) const {
+  static int getIndexForMaxEnergyAndCheckValidity(const std::vector<double>& energies) {
     auto maxIt = std::max_element(energies.begin(), energies.end());
     auto dist = std::distance(energies.begin(), maxIt);
     if (dist == 0 || dist == static_cast<int>(energies.size()) - 1) {
@@ -492,8 +500,7 @@ class BSplineInterpolationTask : public Task {
   mutable std::string optimizer_ = "lbfgs";
   mutable bool extractTsGuess_ = false;
   mutable bool extractTsGuessNeighbours_ = false;
-  mutable bool extractTangent_ = false;
-  mutable std::string tangentFileName_ = "";
+  mutable std::string tangentFileName_;
   mutable double coordinateThresholdForMaximumExtraction_ = 1e-3;
 };
 

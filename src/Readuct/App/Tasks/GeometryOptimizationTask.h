@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory for Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #ifndef READUCT_GEOMETRYOPTIMIZATIONTASK_H_
@@ -10,14 +10,18 @@
 /* Readuct */
 #include "Tasks/Task.h"
 /* Scine */
+#include <Utils/GeometryOptimization/CoordinateSystem.h>
+#include <Utils/GeometryOptimization/GeometryOptimization.h>
 #include <Utils/GeometryOptimization/GeometryOptimizer.h>
 #include <Utils/IO/ChemicalFileFormats/XyzStreamHandler.h>
-#include <Utils/IO/Yaml.h>
 #include <Utils/Optimizer/GradientBased/Bfgs.h>
 #include <Utils/Optimizer/GradientBased/Lbfgs.h>
 #include <Utils/Optimizer/GradientBased/SteepestDescent.h>
 #include <Utils/Optimizer/HessianBased/NewtonRaphson.h>
-/* std c++ */
+#include <Utils/UniversalSettings/SettingsNames.h>
+/* External includes */
+#include <boost/exception/diagnostic_information.hpp>
+#include <boost/filesystem.hpp>
 #include <cstdio>
 #include <fstream>
 
@@ -26,75 +30,53 @@ namespace Readuct {
 
 class GeometryOptimizationTask : public Task {
  public:
-  GeometryOptimizationTask(std::vector<std::string> input, std::vector<std::string> output) : Task(input, output) {
+  /**
+   * @brief Construct a new GeometryOptimizationTask.
+   * @param input  The input system names for the task.
+   * @param output The output system names for the task.
+   * @param logger The logger to/through which all text output will be handled.
+   */
+  GeometryOptimizationTask(std::vector<std::string> input, std::vector<std::string> output,
+                           std::shared_ptr<Core::Log> logger = nullptr)
+    : Task(std::move(input), std::move(output), std::move(logger)) {
   }
 
   std::string name() const override {
     return "Geometry Optimization";
   }
 
-  virtual bool run(std::map<std::string, std::shared_ptr<Core::Calculator>>& systems, const YAML::Node& taskSettings) const final {
+  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
+    warningIfMultipleInputsGiven();
+    warningIfMultipleOutputsGiven();
     // Get/Copy Calculator
     std::shared_ptr<Core::Calculator> calc;
-    if (systems.find(_input[0]) != systems.end()) {
-      calc = std::shared_ptr<Core::Calculator>(systems.at(_input[0])->clone().release());
-    }
-    else {
-      throw std::runtime_error("Missing system '" + _input[0] + "' in geometry optimization.");
+    if (!testRunOnly) { // leave out in case of task chaining --> attention calc is NULL
+      // Note: _input is guaranteed not to be empty by Task constructor
+      calc = copyCalculator(systems, _input.front(), name());
     }
 
     // Generate optimizer
-    std::string optimizertype = "BFGS";
-    auto settingsCopy = taskSettings;
-    if (auto type = settingsCopy["optimizer"]) {
-      optimizertype = type.as<std::string>();
-      settingsCopy.remove("optimizer");
-    }
+    auto optimizertype = taskSettings.extract("optimizer", std::string{"BFGS"});
     std::transform(optimizertype.begin(), optimizertype.end(), optimizertype.begin(), ::toupper);
-    std::unique_ptr<Utils::GeometryOptimizerBase> optimizer;
+    std::shared_ptr<Utils::GeometryOptimizerBase> optimizer;
     if (optimizertype == "LBFGS") {
-      auto tmp = std::make_unique<Utils::GeometryOptimizer<Utils::Lbfgs>>(*calc);
+      auto tmp = std::make_shared<Utils::GeometryOptimizer<Utils::Lbfgs>>(*calc);
       // Default convergence options
-      tmp->check.maxIter = 150;
-      tmp->check.stepMaxCoeff = 2.0e-3;
-      tmp->check.stepRMS = 1.0e-3;
-      tmp->check.gradMaxCoeff = 2.0e-4;
-      tmp->check.gradRMS = 1.0e-4;
-      tmp->check.deltaValue = 1.0e-6;
       optimizer = std::move(tmp);
     }
     else if (optimizertype == "BFGS") {
-      auto tmp = std::make_unique<Utils::GeometryOptimizer<Utils::Bfgs>>(*calc);
+      auto tmp = std::make_shared<Utils::GeometryOptimizer<Utils::Bfgs>>(*calc);
       // Default convergence options
-      tmp->check.maxIter = 150;
-      tmp->check.stepMaxCoeff = 2.0e-3;
-      tmp->check.stepRMS = 1.0e-3;
-      tmp->check.gradMaxCoeff = 2.0e-4;
-      tmp->check.gradRMS = 1.0e-4;
-      tmp->check.deltaValue = 1.0e-6;
       optimizer = std::move(tmp);
     }
     else if (optimizertype == "SD" || optimizertype == "STEEPESTDESCENT") {
-      auto tmp = std::make_unique<Utils::GeometryOptimizer<Utils::SteepestDescent>>(*calc);
+      auto tmp = std::make_shared<Utils::GeometryOptimizer<Utils::SteepestDescent>>(*calc);
       // Default convergence options
-      tmp->check.maxIter = 150;
-      tmp->check.stepMaxCoeff = 2.0e-3;
-      tmp->check.stepRMS = 1.0e-3;
-      tmp->check.gradMaxCoeff = 2.0e-4;
-      tmp->check.gradRMS = 1.0e-4;
-      tmp->check.deltaValue = 1.0e-6;
       optimizer = std::move(tmp);
     }
     else if (optimizertype == "NR" || optimizertype == "NEWTONRAPHSON") {
-      auto tmp = std::make_unique<Utils::GeometryOptimizer<Utils::NewtonRaphson>>(*calc);
+      auto tmp = std::make_shared<Utils::GeometryOptimizer<Utils::NewtonRaphson>>(*calc);
       // Default convergence options
-      tmp->check.maxIter = 150;
-      tmp->check.stepMaxCoeff = 2.0e-3;
-      tmp->check.stepRMS = 1.0e-3;
-      tmp->check.gradMaxCoeff = 2.0e-4;
-      tmp->check.gradRMS = 1.0e-4;
-      tmp->check.deltaValue = 1.0e-6;
-      tmp->transformCoordinates = true;
       optimizer = std::move(tmp);
     }
     else {
@@ -102,77 +84,107 @@ class GeometryOptimizationTask : public Task {
           "Unknown Optimizer requested for a geometry optimization, available are: SD, NR, BFGS and LBFGS!");
     }
 
-    // Read and delete special setttings
-    bool allowUnconverged = false;
-    if (auto m = settingsCopy["allow_unconverged"]) {
-      allowUnconverged = m.as<bool>();
-      settingsCopy.remove("allow_unconverged");
-    }
+    // Read and delete special settings
+    bool stopOnError = stopOnErrorExtraction(taskSettings);
     // Apply settings
     auto settings = optimizer->getSettings();
-    nodeToSettings(settings, settingsCopy);
+    settings.merge(taskSettings);
+    if (!testRunOnly && systems.at(_input[0])->getStructure()->size() == 1 &&
+        Utils::CoordinateSystemInterpreter::getCoordinateSystemFromString(
+            settings.getString("geoopt_coordinate_system")) != Utils::CoordinateSystem::Cartesian) {
+      /* For monoatomic systems avoid transformation to internals resulting into
+       * empty optimization parameters. Necessary because observer and
+       * convergence check use transformed parameters
+       */
+      _logger->warning << "  Cannot treat a monoatomic system in internal coordinates. Switching to Cartesians."
+                       << Core::Log::endl
+                       << Core::Log::endl;
+      settings.modifyString("geoopt_coordinate_system", Utils::CoordinateSystemInterpreter::getStringFromCoordinateSystem(
+                                                            Utils::CoordinateSystem::Cartesian));
+    }
+    if (!settings.valid()) {
+      settings.throwIncorrectSettings();
+    }
     optimizer->setSettings(settings);
+    if (!testRunOnly && !Utils::GeometryOptimization::settingsMakeSense(*optimizer)) {
+      throw std::logic_error("The given calculator settings are too inaccurate for the given convergence criteria of "
+                             "this optimization Task");
+    }
+
+    // If no errors encountered until here, the basic settings should be alright
+    if (testRunOnly) {
+      return true;
+    }
+
     // Add observer
-    int counter = 0;
     // Trajectory stream
-    Utils::XyzStreamHandler writer;
-    boost::filesystem::path dir(((_output.size() > 0) ? _output[0] : _input[0]));
+    const std::string& outputSystem = (!_output.empty() ? _output.front() : _input.front());
+    using Writer = Utils::XyzStreamHandler;
+    boost::filesystem::path dir(outputSystem);
     boost::filesystem::create_directory(dir);
-    boost::filesystem::path trjfile(((_output.size() > 0) ? _output[0] : _input[0]) + ".opt.trj.xyz");
+    boost::filesystem::path trjfile(outputSystem + ".opt.trj.xyz");
     std::ofstream trajectory((dir / trjfile).string(), std::ofstream::out);
     double oldEnergy = 0.0;
     Eigen::VectorXd oldParams;
+    auto cout = _logger->output;
     auto func = [&](const int& cycle, const double& energy, const Eigen::VectorXd& params) {
-      if (oldParams.size() == 0) {
+      if (oldParams.size() != params.size()) {
         oldParams = params;
       }
       if (cycle == 1) {
-        printf("%7s %16s %16s %16s %16s\n", "Cycle", "Energy", "Energy Diff.", "Step RMS", "Max. Step");
+        cout.printf("%7s %16s %16s %16s %16s\n", "Cycle", "Energy", "Energy Diff.", "Step RMS", "Max. Step");
       }
       auto diff = (params - oldParams).eval();
-      printf("%7d %+16.9f %+16.9f %+16.9f %+16.9f\n", cycle, energy, energy - oldEnergy,
-             sqrt(diff.squaredNorm() / diff.size()), diff.cwiseAbs().maxCoeff());
+      cout.printf("%7d %+16.9f %+16.9f %+16.9f %+16.9f\n", cycle, energy, energy - oldEnergy,
+                  sqrt(diff.squaredNorm() / diff.size()), diff.cwiseAbs().maxCoeff());
       oldEnergy = energy;
       oldParams = params;
       auto structure = calc->getStructure();
-      writer.write(trajectory, *structure);
+      Writer::write(trajectory, *structure, std::to_string(energy));
     };
     optimizer->addObserver(func);
 
     // Run optimization
     auto structure = calc->getStructure();
-    int cycles = optimizer->optimize(*structure);
-    int maxiter = settings.getInt("convergence_max_iterations");
-    if (maxiter > cycles) {
-      std::cout << std::endl << "    Converged after " << cycles << " iterations." << std::endl << std::endl;
+    int cycles = 0;
+    try {
+      cycles = optimizer->optimize(*structure, *_logger);
     }
-    else if (allowUnconverged) {
-      std::cout << std::endl << "    Stopped after " << maxiter << " iterations." << std::endl << std::endl;
+    catch (...) {
+      Writer::write(trajectory, *calc->getStructure());
+      trajectory.close();
+      _logger->error << "Optimization failed with error!" << Core::Log::endl;
+      if (stopOnError) {
+        throw;
+      }
+      _logger->error << boost::current_exception_diagnostic_information() << Core::Log::endl;
+      return false;
+    }
+    trajectory.close();
+
+    int maxiter = settings.getInt("convergence_max_iterations");
+    if (cycles < maxiter) {
+      cout << Core::Log::endl
+           << "    Converged after " << cycles << " iterations." << Core::Log::endl
+           << Core::Log::endl;
     }
     else {
-      std::cout << std::endl << "    Stopped after " << maxiter << " iterations." << std::endl << std::endl;
-      throw std::runtime_error("Problem: Structure optimization did not converge.");
+      cout << Core::Log::endl
+           << "    Stopped after " << maxiter << " iterations." << Core::Log::endl
+           << Core::Log::endl;
+      if (stopOnError) {
+        throw std::runtime_error("Problem: Structure optimization did not converge.");
+      }
     }
 
-    // Print/Store results
-    trajectory.close();
-    if (_output.size() > 0) {
-      systems[_output[0]] = calc;
-      boost::filesystem::path xyzfile(_output[0] + ".xyz");
-      std::ofstream xyz((dir / xyzfile).string(), std::ofstream::out);
-      writer.write(xyz, *structure);
-      xyz.close();
-    }
-    else {
-      systems[_input[0]] = calc;
-      boost::filesystem::path xyzfile(_input[0] + ".xyz");
-      std::ofstream xyz((dir / xyzfile).string(), std::ofstream::out);
-      writer.write(xyz, *structure);
-      xyz.close();
-    }
-    if (cycles >= maxiter)
-      return false;
-    return true;
+    // Print/Store result
+    systems[outputSystem] = calc;
+    boost::filesystem::path xyzfile(outputSystem + ".xyz");
+    std::ofstream xyz((dir / xyzfile).string(), std::ofstream::out);
+    Writer::write(xyz, *(calc->getStructure()));
+    xyz.close();
+
+    return cycles < maxiter;
   }
 };
 

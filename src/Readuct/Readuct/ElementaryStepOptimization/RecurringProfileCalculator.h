@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory for Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
@@ -59,7 +59,6 @@ class RecurringProfileCalculator {
  private:
   void injectDensity(int index);
   void saveDensity(int index);
-  void initializeDensity(int index, const Utils::BSplines::BSpline& spline);
 
   Core::Calculator& calculator_;
   BSplineProfileCalculator profileCalculator_;

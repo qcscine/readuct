@@ -1,3 +1,8 @@
+__copyright__ = """This code is licensed under the 3-clause BSD license.
+Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.
+See LICENSE.txt for details.
+"""
+
 import io
 import os
 import subprocess
@@ -58,7 +63,7 @@ class Calculation:
                 self.energy = float(splitted_output[index].split()[4])
             if line == '     #    cm^-1':
                 self.lowest_frequency = float(splitted_output[index + 1].split()[1])
-        if self._input['tasks'][0]['type'] in ['afir', 'geoopt', 'ts', 'irc']:
+        if self._input['tasks'][0]['type'] in ['afir', 'geoopt', 'ts', 'irc', 'nt']:
             self.optimized_structure = self.__load_xyz_file('default_system_output/default_system_output.xyz')
         if self._input['tasks'][0]['type'] in ['bspline']:
             self.interpolated_trajectory = self.__load_trajectory(
@@ -118,7 +123,7 @@ class Calculation:
         return trajectory
 
 
-class TestReaductFast(unittest.TestCase):
+class TestReaductBase(unittest.TestCase):
     def tearDown(self):
         if os.path.exists('default_system'):
             shutil.rmtree('default_system')
@@ -131,11 +136,118 @@ class TestReaductFast(unittest.TestCase):
         if os.path.exists('input.yaml'):
             os.remove('input.yaml')
 
+
+class TestReaductFast(TestReaductBase):
+    def test_wrong_input(self):
+        # Unrecognized keyword on top level
+        wrong_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
+             'name': 'default_system',
+             'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7,
+                          'density_rmsd_criterion' : 1e-7}
+             }
+        ],
+            'tasks': [
+            {'input': ['default_system'],
+             'type': 'sp',
+             }
+        ],
+            'wrong_keyword': []
+        }
+
+        calculation = Calculation(wrong_input)
+        with self.assertRaises(subprocess.CalledProcessError) as context:
+            success = calculation.run()
+
+        # Unrecognized keyword in system block
+        wrong_system_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
+             'name': 'default_system',
+             'method_family': 'PM6',
+             'wrong_keyword': 'something',
+             'settings': {'self_consistence_criterion': 1e-7,
+                          'density_rmsd_criterion' : 1e-7}
+             }
+        ],
+            'tasks': [
+            {'input': ['default_system'],
+             'type': 'sp',
+             }
+        ]
+        }
+
+        calculation = Calculation(wrong_system_input)
+        with self.assertRaises(subprocess.CalledProcessError) as context:
+            success = calculation.run()
+
+        # Unrecognized keyword in task block
+        wrong_task_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
+             'name': 'default_system',
+             'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7,
+                          'density_rmsd_criterion' : 1e-7}
+             }
+        ],
+            'tasks': [
+            {'input': ['default_system'],
+             'type': 'sp',
+             'wrong_keyword': 'something',
+             }
+        ]
+        }
+
+        calculation = Calculation(wrong_task_input)
+        with self.assertRaises(subprocess.CalledProcessError) as context:
+            success = calculation.run()
+
+        # Impossible to achieve setting
+        wrong_system_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
+             'name': 'default_system',
+             'method_family': 'PM6',
+             'settings': {'max_scf_iterations': 2}
+             }
+        ],
+            'tasks': [
+                {'input': ['default_system'],
+                 'type': 'sp',
+                 }
+            ]
+        }
+
+        calculation = Calculation(wrong_system_input)
+        with self.assertRaises(subprocess.CalledProcessError) as context:
+            success = calculation.run()
+
+        # Impossible to achieve setting but do not stop on error
+        wrong_system_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
+             'name': 'default_system',
+             'method_family': 'PM6',
+             'settings': {'max_scf_iterations': 2}
+             }
+        ],
+            'tasks': [
+                {'input': ['default_system'],
+                 'type': 'sp',
+                 'settings': {'stop_on_error': False}
+                 }
+            ]
+        }
+
+        calculation = Calculation(wrong_system_input)
+        success = calculation.run()
+        assert success
+
     def test_single_point_task(self):
         default_input = {'systems': [
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
              'name': 'default_system',
-             'method_family': 'PM6'
+             'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7,
+                          'density_rmsd_criterion' : 1e-7}
              }
         ],
             'tasks': [
@@ -157,7 +269,9 @@ class TestReaductFast(unittest.TestCase):
              'settings': {
                 'molecular_charge': 1,
                 'spin_multiplicity': 2,
-                'unrestricted_calculation': 'true'
+                'spin_mode': 'unrestricted',
+                'self_consistence_criterion': 1e-7,
+                'density_rmsd_criterion' : 1e-7
             }
             }
         ],
@@ -178,8 +292,9 @@ class TestReaductFast(unittest.TestCase):
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
              'name': 'default_system',
              'method_family': 'PM6',
-                              'settings': {
-                'self_consistence_criterion': 1e-8
+             'settings': {
+                'self_consistence_criterion': 1e-8,
+                'density_rmsd_criterion' : 1e-8
             }
             }
         ],
@@ -203,7 +318,7 @@ class TestReaductFast(unittest.TestCase):
              'settings': {
                 'molecular_charge': -1,
                 'spin_multiplicity': 2,
-                'unrestricted_calculation': 'true'
+                'spin_mode': 'unrestricted'
             }
             }
         ],
@@ -223,7 +338,9 @@ class TestReaductFast(unittest.TestCase):
         default_input = {'systems': [
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
              'name': 'default_system',
-             'method_family': 'PM6'
+             'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7,
+                          'density_rmsd_criterion' : 1e-7}
              }
         ],
             'tasks': [
@@ -238,12 +355,37 @@ class TestReaductFast(unittest.TestCase):
         success = default_calculation.run()
         self.assertTrue(success)
         loaded = default_calculation.optimized_structure
-        actual = dihedral(np.array(loaded[2][1:]), np.array(loaded[0][1:]),
-                          np.array(loaded[1][1:]), np.array(loaded[3][1:]))
-        expected = 180.0
-        # Due to the form of the PES in this case the fidelity of the
-        #  test is only the first digit.
-        self.assertAlmostEqual(abs(actual-expected), 0.0e0, places=1)
+        actual_dihedral = dihedral(np.array(loaded[2][1:]), np.array(loaded[0][1:]),
+                                   np.array(loaded[1][1:]), np.array(loaded[3][1:]))
+        expected_dihedral = 180.0
+        difference = abs(actual_dihedral) - expected_dihedral
+
+        # Due to the form of the PES in this case the fidelity of the test is only the first digit.
+        self.assertAlmostEqual(difference, 0.0e0, places=1)
+
+    def test_single_atom_opt_task(self):
+        default_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'br.xyz'),
+             'name': 'default_system',
+             'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7,
+                          'density_rmsd_criterion' : 1e-7,
+                          'molecular_charge': -1}
+             }
+        ],
+            'tasks': [
+                {'input': ['default_system'],
+                 'output': ['default_system_output'],
+                 'type': 'geoopt',
+                 'settings': {'bfgs_use_gdiis': False}
+                 }
+            ]
+        }
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
+        loaded = default_calculation.optimized_structure
+        self.assertTrue(all(abs(number) < 1e-12 for number in loaded[0][1:4]))
 
     def test_transition_state_optimization_task(self):
         default_input = {'systems': [
@@ -251,7 +393,8 @@ class TestReaductFast(unittest.TestCase):
              'name': 'default_system',
              'method_family': 'PM6',
                               'settings': {
-                'self_consistence_criterion': 1e-8
+                'self_consistence_criterion': 1e-8,
+                'density_rmsd_criterion' : 1e-8
             }
             }
         ],
@@ -259,7 +402,8 @@ class TestReaductFast(unittest.TestCase):
             {'input': ['default_system'],
              'output': ['default_system_output'],
              'type': 'ts',
-             'settings': {'optimizer': 'ev'},
+             'settings': {'optimizer': 'ev',
+                          'automatic_mode_selection': [2, 3]},
              },
             {'input': ['default_system_output'],
              'type': 'hessian'
@@ -286,26 +430,27 @@ class TestReaductFast(unittest.TestCase):
              'name': 'default_system',
              'method_family': 'PM6',
              'settings': {
-                 'self_consistence_criterion': 1e-8
-             }
-             }
+                 'self_consistence_criterion': 1e-8,
+                 'density_rmsd_criterion' : 1e-8
+            }
+            }
         ],
             'tasks': [
                 {'input': ['default_system'],
                  'output': ['default_system_output'],
                  'type': 'ts',
                  'settings': {'optimizer': 'DIMER',
-                              'geoopt_transform_coordinates': True,
-                              'convergence_step_max_coefficient': 5e-5,
+                              'geoopt_coordinate_system': 'internal',
+                              'convergence_step_max_coefficient': 1e-6,
                               'convergence_step_rms': 1e-4,
                               'convergence_gradient_max_coefficient': 1e-5,
                               'convergence_gradient_rms': 5e-6,
-                              'convergence_delta_value': 5e-8,
+                              'convergence_delta_value': 1e-8,
                               'convergence_max_iterations': 1000,
                               'convergence_requirement': 4,
                               'dimer_calculate_hessian_once': True,
                               'dimer_decrease_rotation_gradient_threshold': True,
-                              'dimer_gradient_interpolation': True,
+                              'dimer_gradient_interpolation': False,
                               'dimer_radius': 0.02,
                               'dimer_phi_tolerance': 2e-3,
                               'dimer_rotation_gradient_first': 2e-7,
@@ -318,13 +463,13 @@ class TestReaductFast(unittest.TestCase):
                               'dimer_max_rotations_other_cycle': 150,
                               'dimer_interval_of_rotations': 4,
                               'dimer_cycle_of_rotation_gradient_decrease': 6,
-                              'dimer_max_backtracking': 6
+                              'dimer_lbfgs_memory': 6
                               },
                  },
                 {'input': ['default_system_output'],
                  'type': 'hessian'
                  }
-            ]
+        ]
         }
 
         default_calculation = Calculation(default_input)
@@ -342,31 +487,135 @@ class TestReaductFast(unittest.TestCase):
 
     def test_afir_task(self):
         default_input = {'systems': [
-            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'br_2.xyz'),
-             'name': 'default_system',
-             'method_family': 'PM6',
-                              'settings': {
-                'molecular_charge': -2
-            }
+            {
+                'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'br_2.xyz'),
+                'name': 'default_system',
+                'method_family': 'PM6',
+                'settings': {'molecular_charge': -2,
+                             'self_consistence_criterion': 1e-7,
+                             'density_rmsd_criterion' : 1e-7}
             }
         ],
             'tasks': [
-            {'input': ['default_system'],
-             'output': ['default_system_output'],
-             'type': 'afir',
-             'settings': {'allow_unconverged' : 'True'
-                          },
-             }
+                {
+                    'input': ['default_system'],
+                    'output': ['default_system_output'],
+                    'type': 'afir',
+                    'settings': {'stop_on_error': False,
+                                 'afir_coordinate_system': 'cartesianWithoutRotTrans'}
+                }
         ]
         }
 
         default_calculation = Calculation(default_input)
         success = default_calculation.run()
         self.assertTrue(success)
-        expected_structure = [['Br', -6.0715944861, 0.0, 0.0], ['Br', 6.0715944861, 0.0, 0.0]]
+        expected_struct = [['Br', -6.0715944861, 0.0, 0.0],
+                           ['Br',  6.0715944861, 0.0, 0.0]]
+        expected_dist = np.linalg.norm(np.array(expected_struct[0][1:]) - np.array(expected_struct[1][1:]))
+        actual_struct = default_calculation.optimized_structure
+        actual_dist = np.linalg.norm(np.array(actual_struct[0][1:]) - np.array(actual_struct[1][1:]))
+        self.assertAlmostEqual(actual_dist, expected_dist, places=2)
+
+    def test_afir_task_2(self):
+        default_input = {'systems': [
+            {
+                'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'sn2_start.xyz'),
+                'name': 'default_system',
+                'method_family': 'dftb3',
+                'settings': {
+                    'molecular_charge': -1,
+                    'self_consistence_criterion': 1e-7,
+                    'density_rmsd_criterion' : 1e-7
+                }
+            }
+        ],
+            'tasks': [{
+                'input': ['default_system'],
+                'output': ['default_system_output'],
+                'type': 'afir',
+                'settings': {
+                    'afir_lhs_list': [0],
+                    'afir_rhs_list': [1],
+                    'convergence_max_iterations': 1000,
+                },
+            }]
+        }
+
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
+        loaded = default_calculation.optimized_structure
+        actual = np.linalg.norm(np.array(loaded[0][1:]) - np.array(loaded[1][1:]))
+        self.assertAlmostEqual(actual, 1.60, places=2)
+        actual = np.linalg.norm(np.array(loaded[5][1:]) - np.array(loaded[1][1:]))
+        self.assertAlmostEqual(actual, 3.62, places=2)
+
+    def test_afir_task_3(self):
+        default_input = {'systems': [
+            {
+                'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'br_2_alternative.xyz'),
+                'name': 'default_system',
+                'method_family': 'test',
+                'settings': {'self_consistence_criterion': 1e-7}
+            }
+        ],
+            'tasks': [
+                {
+                    'input': ['default_system'],
+                    'output': ['default_system_output'],
+                    'type': 'afir',
+                    'settings': {'afir_coordinate_system': 'cartesian'}
+                }
+        ]
+        }
+
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
+        expected_structure = [['Br', -0.1437805410, 0.0, 0.0], ['Br', 2.1437805410, 0.0, 0.0]]
         for expected, actual in zip(expected_structure, default_calculation.optimized_structure):
             for index in range(1, 4):
-                self.assertAlmostEqual(actual[index], expected[index])
+                self.assertAlmostEqual(actual[index], expected[index], places=6)
+
+    def test_nt_task(self):
+        default_input = {'systems': [{
+            'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'sn2_start.xyz'),
+            'name': 'default_system',
+            'method_family': 'dftb3',
+            'settings': {
+                'molecular_charge': -1,
+                'self_consistence_criterion': 1e-7,
+                'density_rmsd_criterion' : 1e-7
+            }
+        }],
+            'tasks': [{
+                'input': ['default_system'],
+                'output': ['default_system_output'],
+                'type': 'nt',
+                'settings': {
+                    'nt_lhs_list': [0],
+                    'nt_rhs_list': [1],
+                    'nt_total_force_norm': 0.01,
+                    'nt_movable_side': 'rhs',
+                    'nt_constrained_atoms': [0],
+                    'nt_coordinate_system': 'cartesian',
+                    'sd_factor': 0.5,
+                    'convergence_max_iterations': 1000,
+                    'convergence_attractive_stop': 0.9,
+                },
+            }]
+        }
+
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
+        loaded = default_calculation.optimized_structure
+        actual = np.linalg.norm(np.array(loaded[0][1:]) - np.array(loaded[1][1:]))
+        self.assertAlmostEqual(round(actual, 2), 2.40, places=2)
+        actual = np.linalg.norm(np.array(loaded[5][1:]) - np.array(loaded[1][1:]))
+        # The following check yields 2.3 in release mode, but 2.5 in debug mode
+        self.assertAlmostEqual(actual, 2.4, places=0)
 
     def test_irc_task(self):
         default_input = {'systems': [
@@ -374,7 +623,8 @@ class TestReaductFast(unittest.TestCase):
              'name': 'default_system_ts',
              'method_family': 'PM6',
                               'settings': {
-                'self_consistence_criterion': 1e-8
+                'self_consistence_criterion': 1e-8,
+                'density_rmsd_criterion' : 1e-8
             }
             }
         ],
@@ -387,7 +637,7 @@ class TestReaductFast(unittest.TestCase):
                           'convergence_gradient_rms': 1.0e-7,
                           'convergence_step_rms': 1.0e-7,
                           'optimizer': 'lbfgs',
-                          'lbfgs_linesearch': 'false',
+                          'lbfgs_linesearch': False,
                           'irc_initial_step_size': 1.0,
                           },
              },
@@ -403,22 +653,26 @@ class TestReaductFast(unittest.TestCase):
         expected = 180.0
         # Due to the form of the PES in this case the fidelity of the
         #  test is only the first digit.
-        self.assertAlmostEqual(abs(actual-expected), 0.0e0, places=1)
+        self.assertAlmostEqual(abs(actual)-expected, 0.0e0, places=1)
 
     def test_bsplines_task(self):
         default_input = {'systems': [
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'start.xyz'),
              'name': 'start',
              'method_family': 'PM6',
-                              'settings': {
-                'molecular_charge': -1
+             'settings': {
+                'molecular_charge': -1,
+                'self_consistence_criterion': 1e-7,
+                'density_rmsd_criterion' : 1e-7
             }
             },
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'end.xyz'),
              'name': 'end',
              'method_family': 'PM6',
              'settings': {
-                'molecular_charge': -1
+                'molecular_charge': -1,
+                'self_consistence_criterion': 1e-7,
+                'density_rmsd_criterion' : 1e-7
             }
             }
         ],
@@ -486,25 +740,25 @@ class TestReaductFast(unittest.TestCase):
             for index in range(1, 4):
                 self.assertAlmostEqual(actual[index], expected[index], places=3)
 
-        expected_optimized_structure_5 = [['C', -2.1184451699, 1.9442058857, -0.7416076807],
-                                          ['H', -1.3205787145, 2.3395799689, -0.1080666133],
-                                          ['H', -3.0877375029, 2.1540241341, -0.2856069420],
-                                          ['S', -2.0435142884, 2.7327329689, -2.4146150756],
-                                          ['H', -1.9961763168, 0.8527042738, -0.8008708773],
-                                          ['I', -3.2863516258, 8.9503428877, -2.7285828904],
-                                          ['C', -2.5426181744, 5.2930436310, -2.5911348912],
-                                          ['H', -0.4544312981, 5.8052050683, -2.4349633757],
-                                          ['H', -3.8554347919, 5.6339385803, -0.8929320407],
-                                          ['H', -2.9655710137, 4.4054545980, -4.4770763302],
-                                          ['C', -3.8763702182, 5.3024729254, -1.9455029938],
-                                          ['H', -4.5964840010, 5.9778374666, -2.4614119093],
-                                          ['H', -4.3035406830, 4.2869443038, -1.9783021804],
-                                          ['C', -2.4986221267, 5.3175885644, -4.0710860315],
-                                          ['H', -3.0574857619, 6.1873612820, -4.4949775528],
-                                          ['H', -1.4694381467, 5.3847494082, -4.4654922988],
-                                          ['C', -1.3599614333, 5.7119312045, -1.8138109432],
-                                          ['H', -1.5176291405, 6.6931607994, -1.3097624379],
-                                          ['H', -1.1645301815, 4.9597456794,  -1.0345372847]]
+        expected_optimized_structure_5 = [['C', -2.1181172732, 1.9836714746, -0.7785151073],
+                                          ['H', -1.3197130037, 2.3197032410, -0.1209773277],
+                                          ['H', -3.0749952310, 2.1284188534, -0.2889455979],
+                                          ['S', -2.1290732494, 2.9938291531, -2.3413334667],
+                                          ['H', -1.9925978376, 0.8922940213, -0.8965371237],
+                                          ['I', -3.2139748891, 8.6749700156, -2.7566662543],
+                                          ['C', -2.5448866471, 5.2462475016, -2.5688437573],
+                                          ['H', -0.4569520827, 5.8340346354, -2.3917776711],
+                                          ['H', -3.8760443571, 5.6605399299, -0.9159226700],
+                                          ['H', -2.9469637601, 4.3866439507, -4.5024463007],
+                                          ['C', -3.8865163851, 5.2895380992, -1.9426096937],
+                                          ['H', -4.5867750036, 5.9879381742, -2.4454349478],
+                                          ['H', -4.3288978721, 4.2786954278, -1.9496806504],
+                                          ['C', -2.5056090597, 5.2940482309, -4.0577615825],
+                                          ['H', -3.0403495176, 6.1836946320, -4.4833171205],
+                                          ['H', -1.5023268880, 5.3793837211, -4.4799397886],
+                                          ['C', -1.3667703121, 5.7104540747, -1.7968727269],
+                                          ['H', -1.5112735075, 6.7101927824, -1.3232094348],
+                                          ['H', -1.1130837127, 4.9787257115, -1.0095491274]]
         for expected, actual in zip(expected_optimized_structure_5, default_calculation.optimized_trajectory[5]):
             for index in range(1, 4):
                 # TODO: Check for at least two places after the decimal point (the difference is probably due to
@@ -534,101 +788,102 @@ class TestReaductFast(unittest.TestCase):
             for index in range(1, 4):
                 self.assertAlmostEqual(actual[index], expected[index], places=3)
 
-        expected_ts_guess_structure = [['C', -2.0916746662, 1.7935848435, -0.69528824374],
-                                       ['H', -1.2959207114, 2.2089758649, -0.07356326423],
-                                       ['H', -3.0636656621, 2.0287200143, -0.25860057205],
-                                       ['S', -1.9990539050, 2.5353722331, -2.37828259150],
-                                       ['H', -1.9754593759, 0.7038769724, -0.73035926397],
-                                       ['I', -3.1926978350, 8.7144405623, -2.79027973720],
-                                       ['C', -2.5915466959, 5.5577189166, -2.62222231602],
-                                       ['H', -0.4689349351, 5.8755538451, -2.44251062809],
-                                       ['H', -3.8962278558, 5.7348159996, -0.90390439036],
-                                       ['H', -2.9534790989, 4.4348932937, -4.40042966651],
-                                       ['C', -3.9011154561, 5.4144691850, -1.96020522079],
-                                       ['H', -4.6903954056, 6.0017457704, -2.47101088188],
-                                       ['H', -4.2202152208, 4.3471585970, -1.98310329607],
-                                       ['C', -2.5178966222, 5.4083179011, -4.08639767871],
-                                       ['H', -3.0888698983, 6.2064446325, -4.60724341309],
-                                       ['H', -1.4804990712, 5.4419029240, -4.46929894629],
-                                       ['C', -1.3820368438, 5.8077255163, -1.82684153651],
-                                       ['H', -1.4719277940, 6.7453723392, -1.24273261215],
-                                       ['H', -1.2333035361, 4.9719342194, -1.1080660913]]
+        expected_ts_guess_structure = [['C', -2.0893811632, 1.8112813643, -0.7196906764],
+                                       ['H', -1.2935641112, 2.1829003261, -0.0805074231],
+                                       ['H', -3.0517651721, 1.9975594487, -0.2569168881],
+                                       ['S', -2.0752328593, 2.7583694233, -2.3038229825],
+                                       ['H', -1.9706067739, 0.7259654079, -0.8094247706],
+                                       ['I', -3.1182629953, 8.4416715568, -2.8184112541],
+                                       ['C', -2.6015580940, 5.5631014596, -2.6144149818],
+                                       ['H', -0.4724691439, 5.9029663299, -2.4013512827],
+                                       ['H', -3.9194874337, 5.7603494829, -0.9246580995],
+                                       ['H', -2.9281905810, 4.4248542374, -4.4059143804],
+                                       ['C', -3.9130661109, 5.4109761915, -1.9597971721],
+                                       ['H', -4.6994444017, 6.0068074456, -2.4549206314],
+                                       ['H', -4.2184621408, 4.3467867027, -1.9607180093],
+                                       ['C', -2.5278053613, 5.3997859411, -4.0799929203],
+                                       ['H', -3.0779558916, 6.2020757469, -4.6168466792],
+                                       ['H', -1.5141037367, 5.4402061390, -4.4829731198],
+                                       ['C', -1.3906666201, 5.8138762167, -1.8132369058],
+                                       ['H', -1.4531850006, 6.7608993053, -1.2392958378],
+                                       ['H', -1.1997129981, 4.9825909046, -1.1074463345]]
         for expected, actual in zip(expected_ts_guess_structure, default_calculation.ts_guess_structure):
             for index in range(1, 4):
                 # TODO: Check for at least two places after the decimal point (the difference is probably due to
                 # differences in the L-BFGS implementation
                 self.assertAlmostEqual(actual[index], expected[index], places=1)
 
-        expected_tangent = [ -0.254487,
-                             1.47209,
-                             -0.456651,
-                             -0.241359,
-                             1.28398,
-                             -0.332392,
-                             -0.234254,
-                             1.22696,
-                             -0.265181,
-                             -0.473553,
-                             2.05341,
-                             -0.342814,
-                             -0.205065,
-                             1.438,
-                             -0.700538,
-                             -0.893863,
-                             2.21267,
-                             0.600469,
-                             0.480827,
-                             -2.57208,
-                             0.312053,
-                             0.165121,
-                             -0.686538,
-                             0.078653,
-                             0.393329,
-                             -0.977861,
-                             0.117168,
-                             -0.112563,
-                             -0.356626,
-                             -0.766105,
-                             0.250835,
-                             -1.09098,
-                             0.143841,
-                             0.868093,
-                             -0.198839,
-                             0.0850303,
-                             -0.813324,
-                             -0.658956,
-                             0.0558146,
-                             0.185655,
-                             -0.885504,
-                             0.152927,
-                             0.277957,
-                             -0.128351,
-                             1.04524,
-                             0.115931,
-                             -0.567032,
-                             0.0210709,
-                             0.226899,
-                             -0.932896,
-                             0.13167,
-                             -0.432671,
-                             -0.450127,
-                             -0.619022,
-                             0.696491,
-                             -0.181327,
-                             0.738766]
-
+        expected_tangent = [-0.239278,
+                            1.55754,
+                            -0.602502,
+                            -0.238813,
+                            1.21556,
+                            -0.3764,
+                            -0.177045,
+                            1.14689,
+                            -0.305006,
+                            -0.710881,
+                            2.84015,
+                            -0.168863,
+                            -0.196327,
+                            1.49092,
+                            -0.906734,
+                            -0.721461,
+                            1.53762,
+                            0.510299,
+                            0.528091,
+                            -3.00172,
+                            0.439134,
+                            0.191196,
+                            -0.570724,
+                            0.158384,
+                            0.345808,
+                            -0.838374,
+                            0.0702003,
+                            -0.133971,
+                            -0.49866,
+                            -0.943062,
+                            0.237056,
+                            -1.12668,
+                            0.158944,
+                            0.923427,
+                            -0.0650731,
+                            0.0936308,
+                            -1.02015,
+                            -0.753986,
+                            0.154201,
+                            0.181972,
+                            -0.988692,
+                            0.195317,
+                            0.306691,
+                            -0.0226949,
+                            1.11677,
+                            0.0742686,
+                            -0.569341,
+                            -0.0316138,
+                            0.240139,
+                            -0.943181,
+                            0.187367,
+                            -0.489968,
+                            -0.283512,
+                            -0.708076,
+                            0.899243,
+                            -0.126046,
+                            0.958014]
         for expected, actual in zip(expected_tangent, default_calculation.tangent):
-                self.assertAlmostEqual(float(actual), expected, places=5)
+            self.assertAlmostEqual(float(actual), expected, places=3)
 
     def test_bsplines_interpolation_task(self):
         input1 = {'systems': [
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2_1.xyz'),
              'name': 'start',
              'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion' : 1e-7}
              },
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2_2.xyz'),
              'name': 'end',
              'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion' : 1e-7}
              }
         ],
             'tasks': [
@@ -661,10 +916,12 @@ class TestReaductFast(unittest.TestCase):
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2_1.xyz'),
              'name': 'start',
              'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion' : 1e-7}
              },
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2_3.xyz'),
              'name': 'end',
              'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion' : 1e-7}
              }
         ],
             'tasks': [
@@ -695,21 +952,25 @@ class TestReaductFast(unittest.TestCase):
             self.assertAlmostEqual(structure[1][3], 0, places=3)
 
 
-class TestReaductAll(TestReaductFast):
+class TestReaductSlow(TestReaductBase):
     def test_bsplines_task_2(self):
         input_2 = {'systems': [
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'start2.xyz'),
              'name': 'start',
              'method_family': 'PM6',
              'settings': {
-                 'molecular_charge': -2
+                 'molecular_charge': -2,
+                 'self_consistence_criterion': 1e-7,
+                 'density_rmsd_criterion' : 1e-7
             }
             },
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'end2.xyz'),
              'name': 'end',
              'method_family': 'PM6',
              'settings': {
-                 'molecular_charge': -2
+                 'molecular_charge': -2,
+                 'self_consistence_criterion': 1e-7,
+                 'density_rmsd_criterion' : 1e-7
             }
             }
         ],
@@ -783,229 +1044,226 @@ class TestReaductAll(TestReaductFast):
             for index in range(1, 4):
                 self.assertAlmostEqual(actual[index], expected[index], places=3)
 
-        expected_optimized_structure_5 = [['C', -0.2915936065, -0.5094986883, -0.5623174051],
-                                          ['C', 0.3264678238, -1.2256493765, -1.6082307988],
-                                          ['C', -0.0114209354, -2.5455208297, -1.8724147897],
-                                          ['C', -0.9928649173, -3.1715608806, -1.0753700819],
-                                          ['C', -1.6168660954, -2.4844581659, -0.0271666415],
-                                          ['C', -1.2566368011, -1.1557369860, 0.2199040081],
-                                          ['C', 0.0708781156, 0.8942373580, -0.3032278977],
-                                          ['C', -0.9294320833, 1.8872264604, -0.2167400712],
-                                          ['C', -0.6009857912, 3.2106295370, 0.0164181388],
-                                          ['C', 0.7724704580, 3.5980723514, 0.1760073293],
-                                          ['C', 1.7697548847, 2.5983351494, 0.0946943413],
-                                          ['C', 1.4114555101, 1.2720596050, -0.1445265864],
-                                          ['O', 0.9734075716, 4.8794057807, 0.4016253252],
-                                          ['O', -1.2351194897, -4.4708848092, -1.4449540686],
-                                          ['C', -2.2810494882, -5.2027694781, -0.7251717901],
-                                          ['C', -2.3165148871, -6.5721708560, -1.4050044633],
-                                          ['C', -3.5098478333, -7.3678884805, -0.9119485523],
-                                          ['S', -3.4878665536, -9.0485867356, -1.6116693744],
-                                          ['O', -2.1860826368, -9.6283111029, -1.2051492489],
-                                          ['O', -3.6372817330, -8.8745800007, -3.0749288376],
-                                          ['O', -4.6570907314, -9.6983114335, -0.9669120284],
-                                          ['H', -3.5171243557, -7.4516075524, 0.1848406711],
-                                          ['H', -4.4590366039, -6.8869046762, -1.1908081199],
-                                          ['H', -1.3701871386, -7.1216129668, -1.2087401529],
-                                          ['H', -2.3579120487, -6.4456875203, -2.5085614553],
-                                          ['H', -3.2262165485, -4.6504478085, -0.8400538952],
-                                          ['H', -1.9896100637, -5.2630600713, 0.3339880332],
-                                          ['H', 0.4504257228, -3.1105225826, -2.6747191771],
-                                          ['H', 1.0736729010, -0.7264475865, -2.2192389027],
-                                          ['H', -1.7285293206, -0.6144423871, 1.0368986199],
-                                          ['H', -2.3634543436, -2.9623751267, 0.5902414834],
-                                          ['H', 2.1879754825, 0.5094836776, -0.2037834976],
-                                          ['H', 2.8039935231, 2.8770106314, 0.2168608773],
-                                          ['H', -1.3625168654, 3.9799191651, 0.0768439301],
-                                          ['H', -1.9727257453, 1.5977066512, -0.3462501159],
-                                          ['C', 4.2881714749, 5.9408784068, 1.7710601147],
-                                          ['C', 2.7746775073, 5.8589908996, 1.8876982457],
-                                          ['C', 2.2610287309, 6.7328598666, 3.0226042217],
-                                          ['C', 2.1462301371, 6.1456766578, 0.5625513308],
-                                          ['Br', 3.1617517040, 8.8653857085, 0.3797540541],
-                                          ['H', 2.6294460145, 5.8656436457, -0.3426105623],
-                                          ['H', 1.3519026853, 6.8731851349, 0.5171604343],
-                                          ['H', 4.7712593604, 5.6493946954, 2.6939143355],
-                                          ['H', 4.6460722977, 5.3029484988, 0.9682164556],
-                                          ['H', 4.6129982243, 6.9702604731, 1.5463983785],
-                                          ['H', 2.4478026390, 4.8010804530, 2.0751746659],
-                                          ['H', 2.6930172417, 6.4102422311, 3.9679678590],
-                                          ['H', 2.5599671876, 7.7793243955, 2.8677869285],
-                                          ['H', 1.1731394197, 6.6890786680, 3.0818887326]]
-
+        expected_optimized_structure_5 = [['C', -0.2913361885, -0.5085154474, -0.5623099448],
+                                          ['C', 0.3252158514, -1.2257408421, -1.6073473033],
+                                          ['C', -0.0118367883, -2.5449574878, -1.8721453307],
+                                          ['C', -0.9931931891, -3.1718166238, -1.0750920962],
+                                          ['C', -1.6156438366, -2.4833682044, -0.027618957],
+                                          ['C', -1.2563085416, -1.1555762908, 0.2198290907],
+                                          ['C', 0.0693719082, 0.893694128, -0.3032358827],
+                                          ['C', -0.9306026038, 1.8850574493, -0.2171788829],
+                                          ['C', -0.6055149806, 3.2094448925, 0.0158812959],
+                                          ['C', 0.7693759786, 3.5963824308, 0.1765486546],
+                                          ['C', 1.7676936569, 2.5956508761, 0.0939786932],
+                                          ['C', 1.4107661486, 1.2707241932, -0.1451387537],
+                                          ['O', 0.9795284802, 4.8655061807, 0.3968347178],
+                                          ['O', -1.2351960708, -4.470005023, -1.4443620639],
+                                          ['C', -2.2802692615, -5.2024038961, -0.7253213327],
+                                          ['C', -2.3164004555, -6.5716345535, -1.4046627865],
+                                          ['C', -3.5093461232, -7.3675560826, -0.9118639442],
+                                          ['S', -3.4876243734, -9.0474673051, -1.6112776633],
+                                          ['O', -2.1862750593, -9.6280277421, -1.2054085992],
+                                          ['O', -3.6371823152, -8.8747374206, -3.0743038321],
+                                          ['O', -4.656168907, -9.6981578259, -0.9670919422],
+                                          ['H', -3.5166611017, -7.4513451563, 0.1846511208],
+                                          ['H', -4.4583991615, -6.8868360059, -1.1906118477],
+                                          ['H', -1.3704864294, -7.1208796036, -1.2088587615],
+                                          ['H', -2.3576969927, -6.4452902712, -2.5077021708],
+                                          ['H', -3.2245516533, -4.6508527379, -0.8395697308],
+                                          ['H', -1.989180945, -5.2626020184, 0.3327041899],
+                                          ['H', 0.4489805756, -3.1096562502, -2.6733807174],
+                                          ['H', 1.0713114983, -0.7269223185, -2.2175793044],
+                                          ['H', -1.7269081588, -0.614572543, 1.0356411733],
+                                          ['H', -2.3608105418, -2.9611905127, 0.5886581366],
+                                          ['H', 2.1873006944, 0.5098521332, -0.20406689],
+                                          ['H', 2.8014246433, 2.8771414539, 0.2164770877],
+                                          ['H', -1.3634133417, 3.9797229718, 0.0767055985],
+                                          ['H', -1.9728261926, 1.5975641546, -0.3461968412],
+                                          ['C', 4.2762843835, 5.9423740366, 1.7692146273],
+                                          ['C', 2.767098269, 5.867506011, 1.8789608711],
+                                          ['C', 2.2620980846, 6.7302541376, 3.0198654072],
+                                          ['C', 2.1657947098, 6.1672566018, 0.5702394251],
+                                          ['Br', 3.1649614199, 8.8760394196, 0.3823374628],
+                                          ['H', 2.6091065425, 5.861068202, -0.3216152023],
+                                          ['H', 1.3820763722, 6.8533610385, 0.5203619477],
+                                          ['H', 4.7670859809, 5.6514052831, 2.6872665667],
+                                          ['H', 4.640308791, 5.3060976603, 0.9750685209],
+                                          ['H', 4.6115712273, 6.9638143597, 1.5475774429],
+                                          ['H', 2.4452594773, 4.8096227003, 2.0681793154],
+                                          ['H', 2.692473972, 6.4114628379, 3.9611313748],
+                                          ['H', 2.5606727153, 7.7718622016, 2.8670770911],
+                                          ['H', 1.1780718327, 6.6872468091, 3.0787509696]]
         for expected, actual in zip(expected_optimized_structure_5, calculation_2.optimized_trajectory[5]):
             for index in range(1, 4):
                 # TODO: Check for at least two places after the decimal point (the difference is probably due to
                 # differences in the L-BFGS implementation)
                 self.assertAlmostEqual(actual[index], expected[index], places=1)
 
-        expected_ts_guess_structure = [['C', -0.2838885534, -0.5641543899, -0.5602777497],
-                                       ['C', 0.3512566457, -1.2950378387, -1.5864473268],
-                                       ['C', 0.0007975989, -2.6110318367, -1.8555936655],
-                                       ['C', -1.0114412724, -3.2183977937, -1.0840727589],
-                                       ['C', -1.6552090565, -2.5183904832, -0.0575306990],
-                                       ['C', -1.2813530249, -1.1940438503, 0.1954402131],
-                                       ['C', 0.0946406052, 0.8321622807, -0.2951511132],
-                                       ['C', -0.8908210400, 1.8413220635, -0.2160782230],
-                                       ['C', -0.5485531718, 3.1567876971, 0.0207038561],
-                                       ['C', 0.8288354491, 3.5355403461, 0.1962467501],
-                                       ['C', 1.8153023377, 2.5089276226, 0.1218207271],
-                                       ['C', 1.4405663150, 1.1930401625, -0.1227268698],
-                                       ['O', 1.0740580959, 4.7800235049, 0.4247469318],
-                                       ['O', -1.2617290448, -4.5181410148, -1.4560074080],
-                                       ['C', -2.3297844510, -5.2344637807, -0.7558245597],
-                                       ['C', -2.3555529210, -6.6122829959, -1.4197262791],
-                                       ['C', -3.5563734319, -7.4027391198, -0.9358740386],
-                                       ['S', -3.5357524310, -9.0851225757, -1.6286939613],
-                                       ['O', -2.2491938450, -9.6781685507, -1.1931716738],
-                                       ['O', -3.6532805774, -8.9173389602, -3.0958894055],
-                                       ['O', -4.7250135089, -9.7215406469, -1.0062698282],
-                                       ['H', -3.5741082909, -7.4816625429, 0.1612715602],
-                                       ['H', -4.5008865982, -6.9184776214, -1.2252607872],
-                                       ['H', -1.4122439227, -7.1586386870, -1.2023963365],
-                                       ['H', -2.3797759971, -6.4985858842, -2.5251922456],
-                                       ['H', -3.2684967707, -4.6783460659, -0.9021601427],
-                                       ['H', -2.0679959082, -5.2841892310, 0.3117795152],
-                                       ['H', 0.4765822647, -3.1853219797, -2.6426139075],
-                                       ['H', 1.1223901336, -0.8093780698, -2.1781558173],
-                                       ['H', -1.7675904399, -0.6426461264, 0.9968964359],
-                                       ['H', -2.4269267167, -2.9816277462, 0.5395917196],
-                                       ['H', 2.2051612614, 0.4178518936, -0.1761590025],
-                                       ['H', 2.8500479751, 2.7766911950, 0.2552085867],
-                                       ['H', -1.2964524430, 3.9376221484, 0.0745622857],
-                                       ['H', -1.9363870139, 1.5671097586, -0.3560876409],
-                                       ['C', 4.3398165483, 6.1369121594, 1.7414086230],
-                                       ['C', 2.8307504653, 6.0226573761, 1.8812529245],
-                                       ['C', 2.3207059474, 6.8167341558, 3.0738519413],
-                                       ['C', 2.1763108126, 6.3770880985, 0.5947797041],
-                                       ['Br', 2.9274911236, 8.8731525371, 0.3880542131],
-                                       ['H', 2.5831548449, 6.0462943988, -0.3335957360],
-                                       ['H', 1.2233084516, 6.8620280426, 0.5987648730],
-                                       ['H', 4.8447911921, 5.7882613941, 2.6325167942],
-                                       ['H', 4.6883129553, 5.5551621111, 0.8905096543],
-                                       ['H', 4.6464648032, 7.1802837985, 1.5775932374],
-                                       ['H', 2.5263265565, 4.9418059278, 2.0140800951],
-                                       ['H', 2.7783158494, 6.4481032286, 3.9907171600],
-                                       ['H', 2.5883932535, 7.8759945790, 2.9760712715],
-                                       ['H', 1.2350289456, 6.7381713115, 3.1530881035]]
-
+        expected_ts_guess_structure = [['C', -0.2844856556, -0.5573491651, -0.5605121762],
+                                       ['C', 0.3473335304, -1.2876032261, -1.5879528624],
+                                       ['C', -0.0009076526, -2.6033390816, -1.8571697552],
+                                       ['C', -1.0097894086, -3.2136879211, -1.0828845115],
+                                       ['C', -1.6498442203, -2.5136268406, -0.0546729532],
+                                       ['C', -1.2783759254, -1.1897570797, 0.1980401333],
+                                       ['C', 0.090775981, 0.8384132721, -0.2960149614],
+                                       ['C', -0.8959748215, 1.8446322737, -0.2165109201],
+                                       ['C', -0.5575792063, 3.1619542994, 0.0198863326],
+                                       ['C', 0.8210255333, 3.5411516082, 0.1948479243],
+                                       ['C', 1.808674994, 2.5162541862, 0.1182526522],
+                                       ['C', 1.4365913664, 1.1999903886, -0.1257286389],
+                                       ['O', 1.0681742184, 4.7802941227, 0.4181404767],
+                                       ['O', -1.2588981738, -4.512047223, -1.4542314582],
+                                       ['C', -2.323788112, -5.2307184604, -0.752624991],
+                                       ['C', -2.3512135422, -6.6074114401, -1.4178004767],
+                                       ['C', -3.5508380213, -7.3985970462, -0.9331867829],
+                                       ['S', -3.5303517034, -9.0801493485, -1.6264910486],
+                                       ['O', -2.2425339723, -9.6724698612, -1.194723501],
+                                       ['O', -3.6514402045, -8.9128362866, -3.0930156022],
+                                       ['O', -4.7167733421, -9.7188593515, -1.0021726398],
+                                       ['H', -3.5674848687, -7.4781722237, 0.1636404416],
+                                       ['H', -4.4957365101, -6.9150053939, -1.2213512757],
+                                       ['H', -1.4079806275, -7.1539201482, -1.2031957593],
+                                       ['H', -2.377200989, -6.4924767473, -2.5225548297],
+                                       ['H', -3.2623135951, -4.6757255561, -0.8949620316],
+                                       ['H', -2.0590740232, -5.2814608241, 0.3129388391],
+                                       ['H', 0.4723394246, -3.1763676842, -2.644804135],
+                                       ['H', 1.1147987638, -0.8008544408, -2.1810006047],
+                                       ['H', -1.7617728295, -0.6397216076, 1.0000271526],
+                                       ['H', -2.4174634767, -2.9783883914, 0.5435564984],
+                                       ['H', 2.2026893628, 0.4281143161, -0.1794301424],
+                                       ['H', 2.8427466309, 2.7877336611, 0.2506942682],
+                                       ['H', -1.3044463244, 3.9421476804, 0.0746937046],
+                                       ['H', -1.9403810317, 1.5703776982, -0.3549657643],
+                                       ['C', 4.3221532107, 6.1170461744, 1.7427851373],
+                                       ['C', 2.8166160695, 6.0120498567, 1.8733146799],
+                                       ['C', 2.3151761549, 6.8051036724, 3.0652760117],
+                                       ['C', 2.1876033071, 6.3632910516, 0.5982506144],
+                                       ['Br', 2.9566635981, 8.8870690252, 0.3895982106],
+                                       ['H', 2.5697944221, 6.0224303283, -0.3141057114],
+                                       ['H', 1.2679187381, 6.8451892144, 0.5926220494],
+                                       ['H', 4.8326290609, 5.7753926047, 2.6327048926],
+                                       ['H', 4.6781300042, 5.5308609907, 0.9056717687],
+                                       ['H', 4.6412712411, 7.1513985713, 1.5751485943],
+                                       ['H', 2.5157186723, 4.9349097757, 2.0148051292],
+                                       ['H', 2.7685610836, 6.4453091633, 3.9815884408],
+                                       ['H', 2.5860723729, 7.8582326785, 2.9633409738],
+                                       ['H', 1.233190497, 6.7311987353, 3.1422386072]]
         for expected, actual in zip(expected_ts_guess_structure, calculation_2.ts_guess_structure):
             for index in range(1, 4):
                 # TODO: Check for at least two places after the decimal point (the difference is probably due to
                 # differences in the L-BFGS implementation)
                 self.assertAlmostEqual(actual[index], expected[index], places=1)
 
-        expected_ts_guess_minus_1_structure = [['C',  -0.2835054824, -0.5683845084, -0.5601238695],
-                                               ['C',   0.3536965781, -1.2996255501, -1.5854365892],
-                                               ['C',   0.0018588275, -2.6159666637, -1.8546638109],
-                                               ['C',  -1.0125287763, -3.2215672461, -1.0848759384],
-                                               ['C',  -1.6585943647, -2.5213462978, -0.0592771621],
-                                               ['C',  -1.2832169454, -1.1966275750,  0.1938796236],
-                                               ['C',   0.0971413124,  0.8280356615, -0.2945977938],
-                                               ['C',  -0.8877117163,  1.8393552025, -0.2158039072],
-                                               ['C',  -0.5431339744,  3.1533313894,  0.0211966155],
-                                               ['C',   0.8344600248,  3.5318356812,  0.1971301303],
-                                               ['C',   1.8192355287,  2.5042042708,  0.1240697030],
-                                               ['C',   1.4429232062,  1.1885721260, -0.1208647199],
-                                               ['O',   1.0775940565,  4.7790821444,  0.4285979096],
-                                               ['O',  -1.2634590095, -4.5218338620, -1.4571213172],
-                                               ['C',  -2.3335291516, -5.2368773311, -0.7578931926],
-                                               ['C',  -2.3583096904, -6.6153286002, -1.4208993108],
-                                               ['C',  -3.5598315354, -7.4052790630, -0.9375543701],
-                                               ['S',  -3.5391795585, -9.0880245572, -1.6300035648],
-                                               ['O',  -2.2532498857, -9.6818448842, -1.1921479684],
-                                               ['O',  -3.6544529147, -8.9201891749, -3.0978515930],
-                                               ['O',  -4.7303168077, -9.7233098917, -1.0088022278],
-                                               ['H',  -3.5782573695, -7.4838621777,  0.1597378049],
-                                               ['H',  -4.5040794311, -6.9206829231, -1.2277395714],
-                                               ['H',  -1.4149597466, -7.1615701339, -1.2018942528],
-                                               ['H',  -2.3813823642, -6.5024178681, -2.5268003863],
-                                               ['H',  -3.2723244673, -4.6800195651, -0.9066856850],
-                                               ['H',  -2.0735855691, -5.2858840719,  0.3109908033],
-                                               ['H',   0.4791243402, -3.1908848376, -2.6410874044],
-                                               ['H',   1.1269553334, -0.8148342983, -2.1761628720],
-                                               ['H',  -1.7711017166, -0.6445345985,  0.9947933770],
-                                               ['H',  -2.4326630483, -2.9835645678,  0.5369237270],
-                                               ['H',   2.2067103794,  0.4113467824, -0.1741159208],
-                                               ['H',   2.8543459662,  2.7696841663,  0.2580104342],
-                                               ['H',  -1.2915629795,  3.9348370733,  0.0744603843],
-                                               ['H',  -1.9339073009,  1.5650294072, -0.3568012428],
-                                               ['C',   4.3487104293,  6.1494610345,  1.7404657193],
-                                               ['C',   2.8401167510,  6.0303021214,  1.8854636504],
-                                               ['C',   2.3236565541,  6.8238257916,  3.0791240772],
-                                               ['C',   2.1709074381,  6.3840906957,  0.5938947586],
-                                               ['Br',  2.9093701426,  8.8669507123,  0.3871916784],
-                                               ['H',   2.5899497896,  6.0611722805, -0.3448315787],
-                                               ['H',   1.1977368505,  6.8717211647,  0.6028764961],
-                                               ['H',   4.8521978022,  5.7966048469,  2.6319663173],
-                                               ['H',   4.6943144244,  5.5707144925,  0.8813589739],
-                                               ['H',   4.6496710399,  7.1983045281,  1.5791717037],
-                                               ['H',   2.5327596394,  4.9467362240,  2.0131062814],
-                                               ['H',   2.7845827565,  6.4499508292,  3.9960356122],
-                                               ['H',   2.5900701234,  7.8868283694,  2.9839224147],
-                                               ['H',   1.2367545119,  6.7424832519,  3.1596680543]]
-
+        expected_ts_guess_minus_1_structure = [['C', -0.2844479495, -0.5576205499, -0.5605019027],
+                                               ['C', 0.34745597310, -1.2879468087, -1.5878447900],
+                                               ['C', -0.0008475936, -2.6036634450, -1.8570860420],
+                                               ['C', -1.0098812598, -3.2139199388, -1.0829278516],
+                                               ['C', -1.6500337284, -2.5137948215, -0.0548235999],
+                                               ['C', -1.2784978735, -1.1899466846, 0.19791857780],
+                                               ['C', 0.09089432890, 0.83810615400, -0.2959748538],
+                                               ['C', -0.8957823519, 1.84440748950, -0.2165072548],
+                                               ['C', -0.5573131181, 3.16169067830, 0.01990846820],
+                                               ['C', 0.82131106920, 3.54084165070, 0.19494962300],
+                                               ['C', 1.80890193790, 2.51581220150, 0.11838713190],
+                                               ['C', 1.43673488270, 1.19959775200, -0.1256208761],
+                                               ['O', 1.06866917680, 4.77982261440, 0.41825853580],
+                                               ['O', -1.2590301106, -4.5122806262, -1.4542859428],
+                                               ['C', -2.3240296525, -5.2308755408, -0.7527766155],
+                                               ['C', -2.3514068503, -6.6076099788, -1.4178733841],
+                                               ['C', -3.5510683621, -7.3987694753, -0.9333052422],
+                                               ['S', -3.5305889078, -9.0803310291, -1.6265755882],
+                                               ['O', -2.2428470676, -9.6727163768, -1.1946644085],
+                                               ['O', -3.6515193306, -8.9130479975, -3.0931188221],
+                                               ['O', -4.7171093183, -9.7189740633, -1.0023677695],
+                                               ['H', -3.5677670689, -7.4783211777, 0.16352368720],
+                                               ['H', -4.4959437500, -6.9151618521, -1.2215219643],
+                                               ['H', -1.4081890452, -7.1541034662, -1.2031643542],
+                                               ['H', -2.3773092757, -6.4927387788, -2.5226370276],
+                                               ['H', -3.2625227171, -4.6758639461, -0.8952695681],
+                                               ['H', -2.0594622048, -5.2815654520, 0.31282847210],
+                                               ['H', 0.47246883390, -3.1767380243, -2.6446450901],
+                                               ['H', 1.11503968950, -0.8012652465, -2.1807969997],
+                                               ['H', -1.7619660853, -0.6398613374, 0.99982901360],
+                                               ['H', -2.4177774340, -2.9784835898, 0.54330553900],
+                                               ['H', 2.20277465450, 0.42766053040, -0.1792933322],
+                                               ['H', 2.84297597480, 2.78723716470, 0.25088430400],
+                                               ['H', -1.3041187926, 3.94193887740, 0.07468253030],
+                                               ['H', -1.9402006571, 1.57022677250, -0.3550144230],
+                                               ['C', 4.32240771090, 6.11801680390, 1.74263827780],
+                                               ['C', 2.81688790200, 6.01285260830, 1.87328348100],
+                                               ['C', 2.31547257370, 6.80551877460, 3.06552640160],
+                                               ['C', 2.18769936590, 6.36439590560, 0.59840547100],
+                                               ['Br', 2.9555078120, 8.88713369180, 0.38963912180],
+                                               ['H', 2.56957291320, 6.02332456270, -0.3140596609],
+                                               ['H', 1.26731511690, 6.84512714440, 0.59302446120],
+                                               ['H', 4.83299200100, 5.77608217120, 2.63239945630],
+                                               ['H', 4.67833851590, 5.53211090400, 0.90528911160],
+                                               ['H', 4.64143555070, 7.15243779660, 1.57530209820],
+                                               ['H', 2.51611006690, 4.93560816140, 2.01450804390],
+                                               ['H', 2.76898306610, 6.44549792370, 3.98169973630],
+                                               ['H', 2.58621326670, 7.85870940440, 2.96387548450],
+                                               ['H', 1.23349812240, 6.73144246960, 3.14259033590]]
         for expected, actual in zip(expected_ts_guess_minus_1_structure, calculation_2.ts_guess_structure_minus_1):
             for index in range(1, 4):
                 # TODO: Check for at least two places after the decimal point (the difference is probably due to
                 # differences in the L-BFGS implementation)
                 self.assertAlmostEqual(actual[index], expected[index], places=1)
 
-        expected_ts_guess_plus_1_structure = [['C', -0.2835993751, -0.5677091075, -0.5601507617],
-                                              ['C',  0.3533937985, -1.2987668727, -1.5857092809],
-                                              ['C',  0.0017119631, -2.6151561480, -1.8548753721],
-                                              ['C', -1.0123004778, -3.2209912637, -1.0847685209],
-                                              ['C', -1.6581241122, -2.5209281202, -0.0588985277],
-                                              ['C', -1.2829149588, -1.1961549330,  0.1941854090],
-                                              ['C',  0.0968524452,  0.8288053439, -0.2946976779],
-                                              ['C', -0.8881880848,  1.8399271994, -0.2158112528],
-                                              ['C', -0.5437733856,  3.1540015943,  0.0211457823],
-                                              ['C',  0.8337837453,  3.5326249223,  0.1968785051],
-                                              ['C',  1.8186773595,  2.5053213725,  0.1237371091],
-                                              ['C',  1.4425630099,  1.1895492553, -0.1211335473],
-                                              ['O',  1.0763223776,  4.7803392024,  0.4283220989],
-                                              ['O', -1.2631277104, -4.5212501448, -1.4569870740],
-                                              ['C', -2.3329282525, -5.2364868663, -0.7575138128],
-                                              ['C', -2.3578271103, -6.6148339666, -1.4207179823],
-                                              ['C', -3.5592570813, -7.4048478898, -0.9372582537],
-                                              ['S', -3.5385881437, -9.0875732189, -1.6297931668],
-                                              ['O', -2.2524650559, -9.6812301452, -1.1922942919],
-                                              ['O', -3.6542554542, -8.9196592059, -3.0975972013],
-                                              ['O', -4.7294812182, -9.7230241895, -1.0083133528],
-                                              ['H', -3.5775534213, -7.4834909102,  0.1600299414],
-                                              ['H', -4.5035632300, -6.9202923977, -1.2273137455],
-                                              ['H', -1.4144380444, -7.1611140993, -1.2019723335],
-                                              ['H', -2.3811124045, -6.5017641544, -2.5265974324],
-                                              ['H', -3.2718069453, -4.6796724706, -0.9059185526],
-                                              ['H', -2.0726163430, -5.2856239139,  0.3112705663],
-                                              ['H',  0.4788043487, -3.1899615835, -2.6414881406],
-                                              ['H',  1.1263589726, -0.8138067231, -2.1766758388],
-                                              ['H', -1.7706227048, -0.6441852931,  0.9952917678],
-                                              ['H', -2.4318849407, -2.9833297304,  0.5375549501],
-                                              ['H',  2.2064996799,  0.4124787606, -0.1744571986],
-                                              ['H',  2.8537804721,  2.7709247241,  0.2575365048],
-                                              ['H', -1.2923798336,  3.9353616431,  0.0744888287],
-                                              ['H', -1.9343578242,  1.5654078063, -0.3566798272],
-                                              ['C',  4.3480861543,  6.1470305286,  1.7408354163],
-                                              ['C',  2.8394509343,  6.0282634034,  1.8855553017],
-                                              ['C',  2.3229067740,  6.8227946945,  3.0785032569],
-                                              ['C',  2.1706263369,  6.3810810235,  0.5934862867],
-                                              ['Br', 2.9122610908,  8.8668317025,  0.3870828791],
-                                              ['H',  2.5905706342,  6.0589568142, -0.3449951435],
-                                              ['H',  1.1991294809,  6.8719758592,  0.6018565488],
-                                              ['H',  4.8512990288,  5.7948793620,  2.6327477853],
-                                              ['H',  4.6938076932,  5.5675812454,  0.8822961234],
-                                              ['H',  4.6492621394,  7.1957298375,  1.5787816007],
-                                              ['H',  2.5317923830,  4.9449710998,  2.0138765857],
-                                              ['H',  2.7835317932,  6.4494766521,  3.9957756977],
-                                              ['H',  2.5897188789,  7.8856588150,  2.9825835461],
-                                              ['H',  1.2359746185,  6.7418804867,  3.1587957975]]
-
+        expected_ts_guess_plus_1_structure = [['C', -0.2845233666, -0.5570777854, -0.5605224457],
+                                              ['C',  0.3472110826, -1.2872596457, -1.5880609288],
+                                              ['C', -0.0009677203, -2.6030147215, -1.8572534603],
+                                              ['C', -1.0096975537, -3.2134558984, -1.0828411727],
+                                              ['C', -1.6496547071, -2.5134588595, -0.0545223130],
+                                              ['C', -1.2782539691, -1.1895674728,  0.1981616803],
+                                              ['C',  0.0906576267,  0.8387203882, -0.2960550684],
+                                              ['C', -0.8961672869,  1.8448570513, -0.2165145863],
+                                              ['C', -0.5578452911,  3.1622179253,  0.0198641969],
+                                              ['C',  0.8207399895,  3.5414615134,  0.1947462265],
+                                              ['C',  1.8084480415,  2.5166961566,  0.1181181691],
+                                              ['C',  1.4364478511,  1.2003830241, -0.1258364018],
+                                              ['O',  1.0676792904,  4.7807656709,  0.4180224177],
+                                              ['O', -1.2587662420, -4.5118138191, -1.4541769692],
+                                              ['C', -2.3235465711, -5.2305613788, -0.7524733671],
+                                              ['C', -2.3510202348, -6.6072129004, -1.4177275690],
+                                              ['C', -3.5506076805, -7.3984246184, -0.9330683249],
+                                              ['S', -3.5301144993, -9.0799676721, -1.6264065105],
+                                              ['O', -2.2422208883, -9.6722233426, -1.1947825968],
+                                              ['O', -3.6513610781, -8.9126245785, -3.0929123728],
+                                              ['O', -4.7164373593, -9.7187446365, -1.0019775156],
+                                              ['H', -3.5672026693, -7.4780232701,  0.1637571944],
+                                              ['H', -4.4955292697, -6.9148489369, -1.2211805879],
+                                              ['H', -1.4077722137, -7.1537368289, -1.2032271649],
+                                              ['H', -2.3770927024, -6.4922147170, -2.5224726281],
+                                              ['H', -3.2621044660, -4.6755871706, -0.8946544955],
+                                              ['H', -2.0586858440, -5.2813561955,  0.3130491969],
+                                              ['H',  0.4722100115, -3.1759973440, -2.6449631741],
+                                              ['H',  1.1145578311, -0.8004436405, -2.1812042020],
+                                              ['H', -1.7615795694, -0.6395818795,  1.0002252855],
+                                              ['H', -2.4171495115, -2.9782931891,  0.5438074496],
+                                              ['H',  2.2026040693,  0.4285681014, -0.1795669520],
+                                              ['H',  2.8425172867,  2.7882301550,  0.2505042335],
+                                              ['H', -1.3047738539,  3.9423564809,  0.0747048789],
+                                              ['H', -1.9405614027,  1.5705286241, -0.3549171054],
+                                              ['C',  4.3218987075,  6.1160755576,  1.7429319942],
+                                              ['C',  2.8163441920,  6.0112471044,  1.8733458824],
+                                              ['C',  2.3148797604,  6.8046885644,  3.0650255974],
+                                              ['C',  2.1875068722,  6.3621863379,  0.5980957539],
+                                              ['Br', 2.9578193976,  8.8870044359,  0.3895573066],
+                                              ['H',  2.5700158898,  6.0215360744, -0.3141517001],
+                                              ['H',  1.2685227966,  6.8452510931,  0.5922196460],
+                                              ['H',  4.8322661074,  5.7747030576,  2.6330102930],
+                                              ['H',  4.6779214720,  5.5296111079,  0.9060544636],
+                                              ['H',  4.6411069233,  7.1503593164,  1.5749950955],
+                                              ['H',  2.5153272831,  4.9342114328,  2.0151022065],
+                                              ['H',  2.7681390950,  6.4451204162,  3.9814771131],
+                                              ['H',  2.5859314781,  7.8577559139,  2.9628064633],
+                                              ['H',  1.2328828954,  6.7309549981,  3.1418868680]]
         for expected, actual in zip(expected_ts_guess_plus_1_structure, calculation_2.ts_guess_structure_plus_1):
             for index in range(1, 4):
                 # TODO: Check for at least two places after the decimal point (the difference is probably due to
                 # differences in the L-BFGS implementation)
                 self.assertAlmostEqual(actual[index], expected[index], places=1)
+
 
 if __name__ == '__main__':
     unittest.main()

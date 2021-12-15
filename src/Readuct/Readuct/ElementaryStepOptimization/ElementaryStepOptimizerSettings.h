@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory for Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
@@ -13,6 +13,8 @@
 namespace Scine {
 namespace Readuct {
 namespace ElementaryStepOptimization {
+
+static constexpr int numIntegrationPointsDefaultValue = 21;
 
 /**
  * @brief Settings for an ElementaryStepOptimizer.
@@ -40,10 +42,10 @@ class ElementaryStepOptimizerSettings : public Utils::Settings {
     optimizer.addSettingsDescriptors(this->_fields);
     check.addSettingsDescriptors(this->_fields);
 
-    Utils::UniversalSettings::IntDescriptor num_integration_points(
+    Utils::UniversalSettings::IntDescriptor numIntegrationPoints(
         "The number of integration points used to optimize the spline.");
-    num_integration_points.setDefaultValue(21);
-    this->_fields.push_back("num_integration_points", num_integration_points);
+    numIntegrationPoints.setDefaultValue(numIntegrationPointsDefaultValue);
+    this->_fields.push_back("num_integration_points", numIntegrationPoints);
 
     this->resetToDefaults();
   }

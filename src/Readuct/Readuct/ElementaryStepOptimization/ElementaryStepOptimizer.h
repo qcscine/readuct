@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory for Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
@@ -17,6 +17,7 @@
 #include "Utils/Geometry/AtomCollection.h"
 #include "Utils/Optimizer/GradientBased/SteepestDescent.h"
 #include "Utils/Settings.h"
+#include "Utils/UniversalSettings/SettingsNames.h"
 #include <Core/Interfaces/Calculator.h>
 #include <Eigen/Core>
 #include <utility>
@@ -62,6 +63,17 @@ class ElementaryStepOptimizerBase {
    * @return Settings A settings object with the current settings.
    */
   virtual Utils::Settings getSettings() const = 0;
+  /**
+   * @brief Get the settings of the calculator used for the energy calculations during the optimization.
+   * @return std::shared_ptr<Settings> The settings of the calculator.
+   */
+  virtual const std::shared_ptr<Utils::Settings> getCalculatorSettings() const = 0;
+  /**
+   * @brief The underlying convergence check
+   *
+   * @return GradientBasedCheck the class holding all convergence thresholds.
+   */
+  virtual Utils::GradientBasedCheck getConvergenceCheck() const = 0;
 };
 
 /**
@@ -102,6 +114,14 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
   };
 
   /**
+   * @brief Get the settings of the calculator used for the energy calculations during the optimization.
+   * @return std::shared_ptr<Settings> The settings of the calculator.
+   */
+  const std::shared_ptr<Utils::Settings> getCalculatorSettings() const override {
+    return std::make_shared<Utils::Settings>(_calculator.settings());
+  };
+
+  /**
    * @brief
    *
    * @return int  The final number of optimization cycles carried out.
@@ -122,6 +142,9 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
     int nColumns = variables.cols();
     variablesVector = Eigen::Map<const Eigen::VectorXd>(variables.data(), nRows * nColumns);
 
+    // Create a profile calculator
+    RecurringProfileCalculator profileCalculator(_calculator, numberEquidistantPoints);
+
     // Define update function
     auto const update = [&](const Eigen::VectorXd& parameters, double& value, Eigen::VectorXd& gradients) {
       Eigen::MatrixXd variables;
@@ -131,7 +154,6 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
       TypeConverter::setInnerControlPoints(spline, variables);
 
       // Evaluate cost value
-      RecurringProfileCalculator profileCalculator(_calculator, numberEquidistantPoints);
       profileCalculator.calculateEnergiesAndGradients(spline);
       auto valuesAlongSpline = profileCalculator.valuesAlongSpline();
       CostBasedOptimization::ReaductDefault costCalculator;
@@ -145,7 +167,6 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
       gradients = Eigen::Map<const Eigen::VectorXd>(derivatives.data(), nRows * nColumns);
 
       // Update reaction profile
-      profileCalculator.calculateEnergies(_profile.getMolecularSpline().getBSpline());
       _profile.getProfileEnergies() = ProfileEnergies{profileCalculator.getCoordinates(), profileCalculator.getEnergies()};
     };
 
@@ -164,6 +185,16 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
     return _profile;
   }
 
+  /**
+   * @brief The underlying convergence check
+   *
+   * @note getter to be accessible via base class
+   * @return GradientBasedCheck the class holding all convergence thresholds.
+   */
+  Utils::GradientBasedCheck getConvergenceCheck() const override {
+    return check;
+  };
+
   /// @brief The underlying optimizer (public in order to change its settings).
   OptimizerType optimizer;
 
@@ -171,7 +202,7 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
   Utils::GradientBasedCheck check;
 
   /// @brief The number of interpolation points on the spline.
-  int numberEquidistantPoints = 5;
+  int numberEquidistantPoints = numIntegrationPointsDefaultValue;
 
  private:
   Core::Calculator& _calculator;
