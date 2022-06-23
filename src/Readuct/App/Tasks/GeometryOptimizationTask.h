@@ -13,6 +13,7 @@
 #include <Utils/GeometryOptimization/CoordinateSystem.h>
 #include <Utils/GeometryOptimization/GeometryOptimization.h>
 #include <Utils/GeometryOptimization/GeometryOptimizer.h>
+#include <Utils/GeometryOptimization/UnitCellGeometryOptimizer.h>
 #include <Utils/IO/ChemicalFileFormats/XyzStreamHandler.h>
 #include <Utils/Optimizer/GradientBased/Bfgs.h>
 #include <Utils/Optimizer/GradientBased/Lbfgs.h>
@@ -48,41 +49,19 @@ class GeometryOptimizationTask : public Task {
   bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
     warningIfMultipleInputsGiven();
     warningIfMultipleOutputsGiven();
+    bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
     // Get/Copy Calculator
     std::shared_ptr<Core::Calculator> calc;
     if (!testRunOnly) { // leave out in case of task chaining --> attention calc is NULL
       // Note: _input is guaranteed not to be empty by Task constructor
       calc = copyCalculator(systems, _input.front(), name());
+      Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
     }
 
     // Generate optimizer
     auto optimizertype = taskSettings.extract("optimizer", std::string{"BFGS"});
-    std::transform(optimizertype.begin(), optimizertype.end(), optimizertype.begin(), ::toupper);
-    std::shared_ptr<Utils::GeometryOptimizerBase> optimizer;
-    if (optimizertype == "LBFGS") {
-      auto tmp = std::make_shared<Utils::GeometryOptimizer<Utils::Lbfgs>>(*calc);
-      // Default convergence options
-      optimizer = std::move(tmp);
-    }
-    else if (optimizertype == "BFGS") {
-      auto tmp = std::make_shared<Utils::GeometryOptimizer<Utils::Bfgs>>(*calc);
-      // Default convergence options
-      optimizer = std::move(tmp);
-    }
-    else if (optimizertype == "SD" || optimizertype == "STEEPESTDESCENT") {
-      auto tmp = std::make_shared<Utils::GeometryOptimizer<Utils::SteepestDescent>>(*calc);
-      // Default convergence options
-      optimizer = std::move(tmp);
-    }
-    else if (optimizertype == "NR" || optimizertype == "NEWTONRAPHSON") {
-      auto tmp = std::make_shared<Utils::GeometryOptimizer<Utils::NewtonRaphson>>(*calc);
-      // Default convergence options
-      optimizer = std::move(tmp);
-    }
-    else {
-      throw std::runtime_error(
-          "Unknown Optimizer requested for a geometry optimization, available are: SD, NR, BFGS and LBFGS!");
-    }
+    auto unitcelloptimizertype = taskSettings.extract("unitcelloptimizer", std::string{""});
+    auto optimizer = constructOptimizer(*calc, optimizertype, unitcelloptimizertype);
 
     // Read and delete special settings
     bool stopOnError = stopOnErrorExtraction(taskSettings);
@@ -186,6 +165,86 @@ class GeometryOptimizationTask : public Task {
 
     return cycles < maxiter;
   }
+
+  inline std::shared_ptr<Utils::GeometryOptimizerBase> constructOptimizer(Core::Calculator& calc, std::string type,
+                                                                          std::string cellType) const {
+    std::transform(type.begin(), type.end(), type.begin(), ::toupper);
+    std::transform(cellType.begin(), cellType.end(), cellType.begin(), ::toupper);
+    if (type == "LBFGS") {
+      if (cellType.empty()) {
+        return std::make_shared<Utils::GeometryOptimizer<Utils::Lbfgs>>(calc);
+      }
+      else {
+        if (cellType == "LBFGS") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::Lbfgs, Utils::Lbfgs>>(calc);
+        }
+        else if (cellType == "BFGS") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::Lbfgs, Utils::Bfgs>>(calc);
+        }
+        else if (cellType == "SD" || cellType == "STEEPESTDESCENT") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::Lbfgs, Utils::SteepestDescent>>(calc);
+        }
+        throw std::runtime_error(
+            "Unknown CellOptimizer requested for a geometry optimization, available are: SD, BFGS and LBFGS!");
+      }
+    }
+    else if (type == "BFGS") {
+      if (cellType.empty()) {
+        return std::make_shared<Utils::GeometryOptimizer<Utils::Bfgs>>(calc);
+      }
+      else {
+        if (cellType == "LBFGS") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::Bfgs, Utils::Lbfgs>>(calc);
+        }
+        else if (cellType == "BFGS") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::Bfgs, Utils::Bfgs>>(calc);
+        }
+        else if (cellType == "SD" || cellType == "STEEPESTDESCENT") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::Bfgs, Utils::SteepestDescent>>(calc);
+        }
+        throw std::runtime_error(
+            "Unknown CellOptimizer requested for a geometry optimization, available are: SD, BFGS and LBFGS!");
+      }
+    }
+    else if (type == "SD" || type == "STEEPESTDESCENT") {
+      if (cellType.empty()) {
+        return std::make_shared<Utils::GeometryOptimizer<Utils::SteepestDescent>>(calc);
+      }
+      else {
+        if (cellType == "LBFGS") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::SteepestDescent, Utils::Lbfgs>>(calc);
+        }
+        else if (cellType == "BFGS") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::SteepestDescent, Utils::Bfgs>>(calc);
+        }
+        else if (cellType == "SD" || cellType == "STEEPESTDESCENT") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::SteepestDescent, Utils::SteepestDescent>>(calc);
+        }
+        throw std::runtime_error(
+            "Unknown CellOptimizer requested for a geometry optimization, available are: SD, BFGS and LBFGS!");
+      }
+    }
+    else if (type == "NR" || type == "NEWTONRAPHSON") {
+      if (cellType.empty()) {
+        return std::make_shared<Utils::GeometryOptimizer<Utils::NewtonRaphson>>(calc);
+      }
+      else {
+        if (cellType == "LBFGS") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::NewtonRaphson, Utils::Lbfgs>>(calc);
+        }
+        else if (cellType == "BFGS") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::NewtonRaphson, Utils::Bfgs>>(calc);
+        }
+        else if (cellType == "SD" || cellType == "STEEPESTDESCENT") {
+          return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::NewtonRaphson, Utils::SteepestDescent>>(calc);
+        }
+        throw std::runtime_error(
+            "Unknown CellOptimizer requested for a geometry optimization, available are: SD, BFGS and LBFGS!");
+      }
+    }
+    throw std::runtime_error(
+        "Unknown Optimizer requested for a geometry optimization, available are: SD, NR, BFGS and LBFGS!");
+  };
 };
 
 } // namespace Readuct

@@ -6,6 +6,8 @@ set(READUCT_APP_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/BondOrderTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/AfirOptimizationTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/TsOptimizationTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/NtOptimizationTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/NtOptimization2Task.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/HessianTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/IrcTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/SinglePointTask.h

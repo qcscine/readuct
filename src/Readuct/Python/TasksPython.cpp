@@ -10,6 +10,7 @@
 #include "Tasks/GeometryOptimizationTask.h"
 #include "Tasks/HessianTask.h"
 #include "Tasks/IrcTask.h"
+#include "Tasks/NtOptimization2Task.h"
 #include "Tasks/NtOptimizationTask.h"
 #include "Tasks/SinglePointTask.h"
 #include "Tasks/Task.h"
@@ -126,6 +127,9 @@ void init_tasks(pybind11::module& m) {
         pybind11::arg("test_run_only") = false);
 
   m.def("run_nt_task", &run<Readuct::NtOptimizationTask>, pybind11::arg("systems"),
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+
+  m.def("run_nt2_task", &run<Readuct::NtOptimization2Task>, pybind11::arg("systems"),
         pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
 
   m.def("run_afir_task", &run<Readuct::AfirOptimizationTask>, pybind11::arg("systems"),

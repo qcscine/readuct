@@ -11,7 +11,7 @@
 #include "Tasks/Task.h"
 /* Scine */
 #include <Core/Interfaces/Calculator.h>
-#include <Utils/CalculatorBasics/Results.h>
+#include <Utils/CalculatorBasics.h>
 /* External */
 #include "boost/exception/diagnostic_information.hpp"
 #include <boost/filesystem.hpp>
@@ -27,6 +27,9 @@ class BondOrderTask : public Task {
  public:
   /**
    * @brief Construct a new BondOrderTask.
+   *
+   * @deprecated Please use the SinglePointTask with the `require_bond_orders` setting.
+   *
    * @param input  The input system names for the task.
    * @param output The output system names for the task.
    * @param logger The logger to/through which all text output will be handled.
@@ -45,6 +48,7 @@ class BondOrderTask : public Task {
 
     // Read and delete special settings
     bool stopOnError = stopOnErrorExtraction(taskSettings);
+    bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
     if (!taskSettings.empty()) {
       throw std::logic_error(falseTaskSettingsErrorMessage(name()));
     }
@@ -55,6 +59,7 @@ class BondOrderTask : public Task {
 
     // Note: _input is guaranteed not to be empty by Task constructor
     auto calc = copyCalculator(systems, _input.front(), name());
+    Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
     // Calculate bond orders and energy if not present in the results yet
     if (!calc->results().has<Utils::Property::BondOrderMatrix>()) {

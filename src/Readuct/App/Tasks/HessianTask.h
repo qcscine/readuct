@@ -50,6 +50,7 @@ class HessianTask : public Task {
 
     // Read and delete special settings
     bool stopOnError = stopOnErrorExtraction(taskSettings);
+    bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
     if (!taskSettings.empty()) {
       throw std::logic_error(falseTaskSettingsErrorMessage(name()));
     }
@@ -61,6 +62,7 @@ class HessianTask : public Task {
 
     // Note: _input is guaranteed not to be empty by Task constructor
     auto calc = copyCalculator(systems, _input.front(), name());
+    Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
     // Check system size
     if (calc->getStructure()->size() == 1) {

@@ -1,5 +1,8 @@
 \documentclass[]{tufte-book}
 
+\titleclass{\subsubsection}{straight}
+\titleformat{\subsubsection}[hang]{\normalfont\itshape}{\thesubsubsection}{1em}{}[]
+
 \hypersetup{colorlinks}% uncomment this line if you prefer colored hyperlinks (e.g., for onscreen viewing)
 
 %%
@@ -12,7 +15,7 @@
 
 %%
 % Book metadata
-\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 3.0.0}}
+\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 4.0.0}}
 \author[The SCINE ReaDuct Developers]{The SCINE ReaDuct Developers: \newline \noindent Christoph Brunken, Katja-Sophia Csizi, Stephanie Grimmel, Stefan Gugler, Jan-Grimo Sobez, Miguel Steiner, Paul T\"urtscher, Jan Unsleber, Alain C. Vaucher, Thomas Weymuth, and Markus Reiher}
 \publisher{ETH Z\"urich}
 
@@ -253,7 +256,7 @@ rather than being confused by possibly long times waiting for more involved quan
 
 \textsc{ReaDuct} is distributed as an open source code. In order to compile \textsc{ReaDuct} from this source code, you need
 \begin{itemize}
- \item a C++ compiler supporting the C++14 standard (GCC at least 7.3.0),
+ \item a C++ compiler supporting the C++17 standard (GCC at least 7.3.0),
  \item cmake (at least 3.9.0),
  \item the Boost library (at least 1.65.0), and
  \item the Eigen3 library (at least 3.3.2).
@@ -371,7 +374,7 @@ list of these options (the option names are identical to the command line option
 
 \subsection{External Programs}
 
-SCINE \textsc{ReaDuct} supports calculations with \textsc{ORCA}\cite{orca} (version 4.2.0), \textsc{Turbomole}\cite{turbomole} (version 7.4.1), \textsc{CP2K} (8.1)\cite{cp2k}, \textsc{Gaussian}\cite{gaussian09} (version 09 Rev. D01), and xtb (6.4.1)\cite{xtb}. Support is currently not fully tested. For each program, there might be specific calculation types and/or settings which do not work. Also, we cannot guarantee compatibility with any  version different from the one's mentioned above since we have no control over the output format of an external program. If you encounter any problems when
+SCINE \textsc{ReaDuct} supports calculations with \textsc{ORCA}\cite{orca} (version 4.2.0), \textsc{Turbomole}\cite{turbomole} (version 7.4.1), \textsc{CP2K} (8.1)\cite{cp2k}, \textsc{Gaussian}\cite{gaussian09} (version 09 Rev. D01), and xtb (6.4.1)\cite{xtb}. Support is currently not fully tested. For each program, there might be specific calculation types and/or settings which do not work. Also, we cannot guarantee compatibility with any version different from the one's mentioned above since we have no control over the output format of an external program. If you encounter any problems when
 using one of these software packages together with \textsc{ReaDuct}, please write a short message to \href{scine@phys.chem.ethz.ch}{scine@phys.chem.ethz.ch}.
 
 For these programs, the following settings can be applied.
@@ -391,9 +394,10 @@ calculation. Note that this setting is not available for xtb.
 hartree). The default is \texttt{1.0e-7} (\textit{i.e.}, 10\textsuperscript{$-$7}\,hartree) for all programs.
 \item \texttt{max\_scf\_iterations}: The maximum number of SCF iterations allowed by the program. By default, it is 100. Note that this keyword is currently not available in conjunction with \textsc{Gaussian}.
 \item \texttt{electronic\_temperature}: The electronic temperature used for the calculation. By default, it is 0\,K, except for xtb, in which case it is 300\,K.
+\item \texttt{temperature}: The temperature used for the calculation of thermochemical data. By default, it is 298.15\,K. Note that the calculation of thermochemistry data is currently not supported for \textsc{Gaussian}.
 \end{itemize}
 
-Additional program-specific settings are compiled in the subsequent sections.
+A form of dispersion correction must be specified within the method following a hypen, e.g. \texttt{PBE-D3BJ}. The supported dispersion correction between programs may vary. Additional program-specific settings are compiled in the subsequent sections.
 
 \subsection{\textsc{ORCA}}
 
@@ -427,8 +431,8 @@ By default it is set to an empty string, which results
 in no point charges considered.
 \item \texttt{delete\_tmp\_files}: Whether temporary files (i.e., all files with a ".tmp" extension) should be deleted in case
 the calculation fails. By default, this is set to \texttt{true}.
-\item \texttt{temperature}: The temperature used for the calculation of thermochemical data. By default, it is 298.15\,K.
 \item \texttt{hessian\_calculation\_type}: The way to calculate a Hessian, i.e., either ``analytical`` or ``numerical``. By default, it is set to ``analytical``, unless it is already specified in our code that \textsc{ORCA} does not provide an analytical Hessian for the specified method. However, this list is not complete and may vary from version to version.
+\item \texttt{special\_option}: A possibility to add an input that is not covered by our settings, only recommended for experts.
 \end{itemize}
 
 \subsection{\textsc{Turbomole}}
@@ -446,22 +450,29 @@ The path to the directory containing the \textsc{Turbomole} binaries must be set
 You can specify the following settings in the settings block:
 \begin{itemize}
 \item \texttt{method}:
-This specifies the calculation method to be used. By default, it is \texttt{'PBE'}. Dispersion functional can be added to this method string, e.g: \texttt{'PBE D3BJ'}. Current supported dispersion corrections are D3\cite{grimmeD3} and D3BJ.\cite{bjDamping}
+This specifies the calculation method to be used. By default, it is \texttt{'PBE'}. Dispersion correction can be added to this method string, e.g: \texttt{'PBE-D3BJ'}. Current supported dispersion corrections are D3\cite{grimmeD3} and D3BJ.\cite{bjDamping}
 \item \texttt{basis\_set}: This specifies the basis set string. By default, Turbomole assigns the \texttt{'def-SV(P)'} basis set. You can specify any valid \textsc{Turbomole} basis set string from the Karlsruhe basis sets\cite{karlsruheBasisSets}, Dunning's correlation-consistent basis sets\cite{dunningBasisSets} or Pople-style basis sets\cite{popleBasisSets} (see the \textsc{Turbomole} manual for a complete list).
 \item \texttt{solvation}: This specifies the implicit solvation model. By default, it is empty. Currently, you can specify \texttt{cosmo}.
 \item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. Current supported solvents are: \texttt{water}, \texttt{acetone}, \texttt{benzene}
 , \texttt{dmso}, \texttt{ethanol}, \texttt{methanol}, \texttt{hexane}, \texttt{toluene}, \texttt{ammonia}, \texttt{chloroform}, \texttt{nitrobenzene}, and \texttt{thf}.
-\item \texttt{scf\_damping}: This specifies whether SCF damping is switched on to aid SCF convergence.  By default, it is set to \texttt{false}.
-\item \texttt{scf\_orbitalshift}: Shift all closed shells to lower energies to aid convergence. The default is set to \texttt{0.1}\,hartree.
+\item \texttt{scf\_damping}: This specifies the SCF damping to be applied to aid SCF convergence. Available settings are \texttt{default} (default value of \textsc{Turbomole}), \texttt{low}, \texttt{medium}, and \texttt{high}. Note that the default damping values are lower than any of the other settings.
+\item \texttt{scf\_orbitalshift}: Shifts either the energies of unoccupied MOs to higher energies or, in open-shell cases, the energies of closed-shell MOs to lower energies to aid convergence. The default is set to \texttt{0.1}\,hartree.
 \item \texttt{steer\_orbitals}: This specifies whether the orbitals should be perturbed  following a randomized scheme after a converged single point calculation\cite{orbitalperturbation}. By default, this is set to \texttt{false}.
-\item \texttt{temperature}: The temperature used for the calculation of thermochemical data. By default, it is 298.15\,K.
 \end{itemize}
 
 \subsection{\textsc{CP2K}}
 
 In order to use \textsc{CP2K} with \textsc{ReaDuct}, specify \texttt{program: 'CP2K'} in the respective system block and the desired
 calculation method family (e.g., \texttt{'DFT'}) in the \texttt{method\_family} key.
-The method (e.g., \texttt{'PBE'}) can be specified in the system settings.
+The method (e.g., \texttt{'PBE'}) can be specified in the system settings. Dispersion correction can be added to this method string, e.g: \texttt{'PBE-D3BJ'}. Current supported dispersion corrections are:
+\begin{itemize}
+ 	\item D2
+ 	\item D3
+ 	\item D3BJ
+ 	\item DRSLL
+ 	\item LMKLL
+ 	\item RVV10
+\end{itemize}
 
 Implicit solvation is currently not supported.
 
@@ -477,15 +488,6 @@ You can specify the following settings in the settings block:
 	\item \texttt{plane\_wave\_cutoff}: Sets the plane wave cutoff of the finest grid in Ry. The default is 300.
 	\item \texttt{relative\_multi\_grid\_cutoff}: Determines the grid at which a Gaussian is mapped, giving the cutoff in Ry used for a Gaussian with exponent (denoted alpha in the \textsc{CP2K} manual) of one. The default is 60.
 	\item \texttt{n\_grids}: Sets the desired number of grids. The default is set to 5.
-	\item \texttt{vdw\_functional}: Sets the dispersion correction. By default, dispersion correction is disabled. The possible options are:
-        \begin{itemize}
- 		\item DFTD2
- 		\item DFTD3
- 		\item DFTD3(BJ)
- 		\item DRSLL
- 		\item LMKLL
- 		\item RVV10
-        \end{itemize}
 	\item \texttt{additional\_mos}: Specify the number of additional molecular orbitals. By default, it is set to zero.
 	\item \texttt{orbital\_transformation}: Specify an orbital transformation minimizer, such as ``cg``. By default, it is set to ``none``, which deactivates orbital transformation. The available options are:
         \begin{itemize}
@@ -530,14 +532,14 @@ You can specify the following settings in the settings block:
 	By default it is set to ``additional\_output'', which results in a generated file named ``additional\_output-1.0.Log''. If this setting is identical to ``cp2k\_filename\_base``, no separate files will be generated.
 	\item \texttt{delete\_tmp\_files}: Whether temporary files (i.e., all files with a ".bak" extension) should be deleted in case
 	the calculation fails. By default, this is set to \texttt{true}.
-	\item \texttt{temperature}: The temperature used for the calculation of thermochemical data. By default, it is 298.15\,K.
+	\item \texttt{electronic\_temperature}: The temperature used for Fermi smearing. By default, it is 0.0\,K and therefore deactivated. Setting it to a value also requires to set the number of \texttt{additional\_mos}.
 \end{itemize}
 
 \subsection{\textsc{Gaussian}}
 
 In order to use \textsc{Gaussian} with \textsc{ReaDuct}, specify \texttt{program: 'GAUSSIAN'} in the respective system block and the desired
 calculation method family (e.g., \texttt{'DFT'}) in the \texttt{method\_family} key.
-The method (e.g., \texttt{'PBEPBE'}) can be specified in the system settings.
+The method (e.g., \texttt{'PBEPBE'}) can be specified in the system settings. Dispersion correction can be added to this method string, e.g: \texttt{'PBE-D3BJ'}. Current supported dispersion corrections are D2, D3\cite{grimmeD3} and D3BJ.\cite{bjDamping}
 
 Implicit solvation can be activated specifying the \texttt{solvent} key.
 To model implicit solvation, the Conductor-like Polarizable Continuum Model\cite{cpcm} (C-PCM) with the default solvent dependent settings implemented in Gaussian is used.
@@ -568,7 +570,7 @@ By default, it is set to ``gaussian\_calc''; therefore, the generated input file
 In order to use \textsc{xtb} with \textsc{ReaDuct}, specify \texttt{program: 'XTB'} in the respective system block and the desired
 calculation method family (e.g., \texttt{'GFN2'}) in the \texttt{method\_family} key.
 
-You have to separately install the SCINE wrapper for xtb and make sure that the corresponding module is available in \texttt{SCINE\_MODULE\_PATH}.
+It can be downloaded and integrated into \textsc{ReaDuct} automatically at compilation time with the CMake option \texttt{-DBUILD\_XTB=ON} (\textit{cf.}~also section~\nameref{ch:installation}).
 
 You can specify the following settings in the settings block:
 \begin{itemize}
@@ -577,7 +579,6 @@ You can specify the following settings in the settings block:
 \texttt{benzene}, \texttt{ch2cl2}, \texttt{chcl3}, \texttt{cs2}, \texttt{dmso}, \texttt{ether}, \texttt{methanol}, \texttt{toluene}, \texttt{thf}, \texttt{water}, \texttt{h2o}. For
 GFN-FF, they are \texttt{acetone}, \texttt{acetonitrile}, \texttt{benzene}, \texttt{ch2cl2}, \texttt{chcl3}, \texttt{cs2}, \texttt{dmf}, \texttt{dmso}, \texttt{ether}, \texttt{toluene},
 \texttt{thf}, \texttt{water}, \texttt{h2o}
-\item \texttt{temperature}: This specifies the temperature used for thermochemical calculations. The default is 298.15\,K.
 \item \texttt{symmetry\_number}: This specifies the symmetry number used thermochemical calculations. The default is 1.
 \item \texttt{print\_level}: This specifies the verbosity of the output. Possible values are 0, 1, and 2. By default, it is set to 0 (least verbose).
 \end{itemize}
@@ -592,17 +593,25 @@ specify any of the following in the respective task block: \texttt{type: 'single
 \texttt{type: 'sp'}, or \texttt{type: 'energy'}. The single point task will print partial atomic charges if the given
 model provides any. If charges are not required the keyword \texttt{'require\_charges': false} can be given in the tasks
 settings. In this case the program will not abort if a method that does not provide charges is requested.
-Furthermore, the gradients with respect to the nuclear coordinates can be requested by setting the keyword \texttt{'require\_gradients': true}
+Furthermore, the gradients with respect to the nuclear coordinates can be requested by setting the keyword \texttt{'require\_gradients': true}, bond orders can be requested by setting the keyword \texttt{'require\_bond\_orders': true},
 and the orbital energies can be requested by setting the keyword \texttt{'orbital\_energies': true}.
+This task also allows to carry out test calculations with other spin multiplicities to ensure that the ground state is calculated.
+This option can be activated by setting \texttt{spin\_propensity\_check} to an integer value, which specifies the range to check above and below the current spin multiplicity.
+For example, setting it to 1 will check a multiplicity of 1 and 5 for a system with a spin multiplicity of 3.
+This setting is defaulted to 0, which deactivates the check.\\
 Like in any task, the setting \texttt{stop\_on\_error} can be given to control whether the program throws an exception for a failed energy calculation or simply returns \texttt{false} for the task and proceeds with the remaining tasks. The default value is \texttt{true}.
+Like in any task, the setting \texttt{silent\_stdout\_calculator} can be given to control whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
 
 \subsection{Bond Order Analysis}
+
+This task has been deprecated; it will be removed in future versions. Please use the Single Point Task instead.
 
 Depending on the chosen method it is possible to generate Mayer bond orders for a given system. In order to carry out this task,
 specify any of the following in the respective task block: \texttt{type: 'bond\_orders'}, \texttt{type: 'bondorders'},
 \texttt{type: 'bonds'}, \texttt{type: 'bos'}, or \texttt{type: 'bo'}.
 This task also generates and states the electronic energy.
 Like in any task, the setting \texttt{stop\_on\_error} can be given to control whether the program throws an exception for a failed energy calculation or simply returns \texttt{false} for the task and proceeds with the remaining tasks. The default value is \texttt{true}.
+Like in any task, the setting \texttt{silent\_stdout\_calculator} can be given to control whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
 
 \subsection{Hessian Calculation}
 
@@ -616,6 +625,7 @@ Also, when using \textsc{Sparrow} %or \textsc{xtb}
 as the backend program, the molecular symmetry number $\sigma$ has to be specified there if it differs from the
 default value of one. See the \textsc{Sparrow} manual for details.
 Like in any task, the setting \texttt{stop\_on\_error} can be given to control whether the program throws an exception for a failed energy calculation or simply returns \texttt{false} for the task and proceeds with the remaining tasks. The default value is \texttt{true}.
+Like in any task, the setting \texttt{silent\_stdout\_calculator} can be given to control whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
 
 \subsection{Structure Optimization}
 
@@ -648,6 +658,21 @@ has to be between \texttt{0} and \texttt{4}; by default it is set to \texttt{3}.
   It is given as a list containing the corresponding atom indices (e.g., \texttt{[0, 12, 32, 42]}). This setting can only be set for a true Cartesian coordinate system.
 By default, this list is empty.
 \item \texttt{stop\_on\_error}: Determine whether the program throws an exception for failed energy calculations or optimizations or simply returns \texttt{false} for the failed task and proceeds with the remaining tasks. In case of optimizations, the resulting structure after the maximum number of optimization steps has been reached, is still safed, when this is set to \texttt{false}. The default value is \texttt{true}.
+\item \texttt{silent\_stdout\_calculator}: Determine whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
+\item \texttt{unitcelloptimizer}: This sets the desired optimization algorithm for the unit cell. You can set \texttt{'bfgs'} 
+for the BFGS algorithm including G-DIIS, \texttt{'lbfgs'} for the L-BFGS algorithm, and \texttt{'steepestdescent'} or \texttt{'sd'} 
+for a steepest descent algorithm. By default, it is deactivated. A unit cell optimization requires a program that support the calculation
+of a stress tensor.
+\end{itemize}
+If you specified a \texttt{unitcelloptimizer}, you can also set the following options:
+\begin{itemize}
+\item \texttt{cellopt\_optimize\_angles"}: Specify whether the angles of the unit cell shall be fixed (true) or constrained (false). By default set to \texttt{true}.
+\item \texttt{cellopt\_optimize\_a"}: Specify whether the \textit{a} vector of the unit cell (defined along the positive x-axis) shall be optimized. By default set to \texttt{'true'}.
+\item \texttt{cellopt\_optimize\_b"}: Specify whether the \textit{b} vector of the unit cell (defined x-y-plane) shall be optimized. By default set to \texttt{true}.
+\item \texttt{cellopt\_optimize\_c"}: Specify whether the \textit{c} vector of the unit cell (defined in the positive z-direction) shall be optimized. By default set to \texttt{true}.
+\item \texttt{cellopt\_geoopt\_max\_convergence\_iterations"}: Define the maximum number of microiterations in the optimization of the geometry. By default set to \texttt{100}.
+\item \texttt{cellopt\_cellopt\_max\_convergence\_iterations"}: Define the maximum number of microiterations in the optimization of the unitcell. By default set to \texttt{100}.
+The total number of iterations is still controlled by \texttt{geoopt\_max\_convergence\_iterations}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'bfgs'}, the default coordinate system is 'internal'
@@ -656,8 +681,12 @@ and you can also set the following options:
 \item \texttt{bfgs\_use\_gdiis}: Switch to enable the use of a G-DIIS possibly accelerating convergence. By default set to
 \texttt{true}.
 \item \texttt{bfgs\_gdiis\_max\_store}: The maximum number of old steps used in the G-DIIS. By default set to \texttt{5}.
-\item \texttt{bfgs\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{false}.
-\item \texttt{bfgs\_trust\_radius}: The maximum movement in any cartesian direction by any atom. By default set to \texttt{0.1}.
+\item \texttt{bfgs\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{true}.
+\item \texttt{bfgs\_trust\_radius}: The maximum movement in any cartesian direction by any atom. By default set to \texttt{0.3}.
+\item \texttt{bfgs\_min\_iterations}: The minimum number of cycles before the convergence criteria are checked.
+By default set to \texttt{1}.\\
+Setting this option to values larger than \texttt{1} enforces one or multiple updates of the B matrix.
+This might help for structures with small absolute values of imaginary frequencies.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'lbfgs'}, the default coordinate system is 'cartesianWithoutRotTrans'
@@ -702,7 +731,9 @@ if desired, the following settings can always be set:
 \item \texttt{optimizer}: This sets the desired optimization algorithm. You can set \texttt{'bofill'} for Bofill's algorithm\cite{bofill1, bofill2},
 or any of \texttt{'eigenvector\_following'}, \texttt{'eigenvectorfollowing'}, \texttt{'ef'}, \texttt{'evf'}, or \texttt{'ev'} for a
 eigenvector following algorithm, or \texttt{'dimer'} for the Dimer algorithm~\cite{dimer1,dimer2,dimer3}. By default, it is set to \texttt{'bofill'}.
-\item \texttt{automatic\_mode\_selection}: Specify the indices of atoms that are essential for the reaction in a list to automatically select the imaginary frequency mode with the highest movement of these atoms.
+\item \texttt{automatic\_mode\_selection}: Specify the indices of atoms that are essential for the reaction in a list to automatically
+ select the imaginary frequency mode to follow. Out of all modes that have high contributions by movement of the selected atoms
+ (all within 10\,\% of the highest contributing mode) the one with the biggest imaginary frequency is picked.
 \item \texttt{convergence\_step\_max\_coefficient}: The convergence threshold for the maximum absolute element of the last step taken.
 By default set to \texttt{1.0e-4}.
 \item \texttt{convergence\_step\_rms}: The convergence threshold for the root mean square of the last step taken. By default set to
@@ -721,6 +752,7 @@ By default set to \texttt{5.0e-5}.
   It is given as a list containing the corresponding atom indices (e.g., \texttt{[0, 12, 32, 42]}). This setting can only be set for a true Cartesian coordinate system.
 By default, this list is empty.
 \item \texttt{stop\_on\_error}: Determine whether the program throws an exception for failed energy calculations or optimizations or simply returns \texttt{false} for the failed task and proceeds with the remaining tasks. In case of optimizations, the resulting structure after the maximum number of optimization steps has been reached, is still safed, when this is set to \texttt{false}. The default value is \texttt{true}.
+\item \texttt{silent\_stdout\_calculator}: Determine whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'bofill'}, the default coordinate system is 'cartesianWithoutRotTrans'
@@ -822,6 +854,7 @@ must be between \texttt{0} and \texttt{4}; by default it is set to \texttt{3}.
 The default for the IRC task is 'cartesianWithoutRotTrans'.
 \item \texttt{irc\_initial\_step\_size}: Maximum displacement of one coordinate of one atom along the given mode. All other coordinates are scaled down accordingly; by default it is set to \texttt{0.3}.
 \item \texttt{stop\_on\_error}: Determine whether the program throws an exception for failed energy calculations or optimizations or simply returns \texttt{false} for the failed task and proceeds with the remaining tasks. In case of optimizations, the resulting structure after the maximum number of optimization steps has been reached, is still safed, when this is set to \texttt{false}. Especially, when using a SD type optimizer this option can be helpful. The default value is \texttt{true}.
+\item \texttt{silent\_stdout\_calculator}: Determine whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'bfgs'}, you can also set the following options:
@@ -903,6 +936,7 @@ By default set to \texttt{5.0e-5}.
 \item \texttt{convergence\_requirement}: The number of criteria that have to converge besides the value criterion. This
 has to be between \texttt{0} and \texttt{4}; by default it is set to \texttt{3}.
 \item \texttt{stop\_on\_error}: Determine whether the program throws an exception for failed energy calculations or optimizations or simply returns \texttt{false} for the failed task and proceeds with the remaining tasks. In case of optimizations, the resulting structure after the maximum number of optimization steps has been reached, is still safed, when this is set to \texttt{false}. Especially, when using a SD type optimizer this option can be helpful. The default value is \texttt{true}.
+\item \texttt{silent\_stdout\_calculator}: Determine whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'bfgs'}, you can also set the following options:
@@ -970,6 +1004,7 @@ A higher number of integration points increases the accuracy but also the comput
 \item \texttt{num\_structures}: Sets the number of structures into which a reaction path is discretized for the final
 output (\textit{i.e.,} when writing it to a XYZ trajectory file). By default set to \texttt{10}.
 \item \texttt{stop\_on\_error}: Determine whether the program throws an exception for failed energy calculations or optimizations or simply returns \texttt{false} for the failed task and proceeds with the remaining tasks. In case of optimizations, the resulting structure after the maximum number of optimization steps has been reached, is still safed, when this is set to \texttt{false}. Especially, when using a SD type optimizer this option can be helpful. The default value is \texttt{true}.
+\item \texttt{silent\_stdout\_calculator}: Determine whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'lbfgs'}, you can also set the following options:
@@ -991,12 +1026,20 @@ If you specified \texttt{optimizer: 'steepestdescent'} or \texttt{optimizer: 'sd
 \item \texttt{sd\_factor}: The scaling factor to be used in the steepest descent algorithm. By default set to \texttt{0.1}.
 \end{itemize}
 
-\subsection{Newton Trajectory Calculation}
+\subsection{Newton Trajectory Calculations}
+
+These tasks are used to generate transition state guesses.
+To this end, sets of atoms are force onto one another, or pushed apart.
+There are currently two algorithms available for these types of calculations:
+Newton Trajectory 1 (\texttt{type: 'nt'}, \texttt{type: 'nt1'}) and Newton Trajectory 2 (\texttt{type: 'nt2'}).
+
+\subsubsection{Newton Trajectory Algorithm 1}
 
 This task is used to generate transition state guesses. Two groups of atoms are forced onto one another.
 In order to carry out this task, specify any of the following in the respective task block:
-\texttt{type: 'newtontrajectory'}, \texttt{type: 'ntoptimization'}, \texttt{type: 'ntopt'}, or \texttt{type: 'nt'}.
+\texttt{type: 'newtontrajectory'}, \texttt{type: 'ntoptimization'}, \texttt{type: 'ntopt'}, \texttt{type: 'nt'} or \texttt{type: 'nt1'}.
 
+In this version of the algorithm two groups of atoms (LHS and RHS) are pused together or pulled appart.
 You usually want to set the following settings:
 \begin{itemize}
 \item \texttt{nt\_rhs\_list}: This specifies list of indices of atoms to be forced onto or away from those
@@ -1048,6 +1091,57 @@ The repulsive procedure would stops if all atom pairs across the lists were furt
 covalent radii sums, or if the geometric centers of the two groups are further than the value in a.u. apart.
 By default the value is set to \texttt{4.0}.
 \item \texttt{stop\_on\_error}: Determine whether the program throws an exception for failed energy calculations or optimizations or simply returns \texttt{false} for the failed task and proceeds with the remaining tasks. In case of optimizations, the resulting structure after the maximum number of optimization steps has been reached, is still safed, when this is set to \texttt{false}. Especially, when using a SD type optimizer this option can be helpful. The default value is \texttt{true}.
+\item \texttt{silent\_stdout\_calculator}: Determine whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
+\end{itemize}
+
+The Newton trajectory task uses a steepest descent algorithm internally; for this reason the following setting is available:
+\begin{itemize}
+\item \texttt{sd\_factor}: The scaling factor to be used in the steepest descent algorithm. By default set to \texttt{1.0}.
+\end{itemize}
+
+\subsubsection{Newton Trajectory Algorithm 2}
+In order to carry out this task, specify any of the following in the respective task block:
+\texttt{type: 'newtontrajectory2'}, \texttt{type: 'ntoptimization2'}, \texttt{type: 'ntopt2'}, or \texttt{type: 'nt2'}.
+
+In this version of the task any number of pairs of atoms are pushed together or pulled apart.
+You usually want to set the following settings:
+\begin{itemize}
+\item \texttt{nt\_associations}: This specifies list of indices of atoms pairs to be forced onto another.
+ Pairs are given in a flat list such that indices $2i$ and $2i+1$ form a pair.
+\item \texttt{nt\_dissociations}: This specifies list of indices of atoms pairs to be forced away from another.
+ Pairs are given in a flat list such that indices $2i$ and $2i+1$ form a pair.
+\end{itemize}
+
+The task works without the specification of any additional settings; the default settings work usually fine. However,
+if desired, the following settings can always be set:
+\begin{itemize}
+\item \texttt{nt\_total\_force\_norm}: The maximum norm of the force applied to an atom listed in any of the pairs.
+ Note that some atoms may have forces applied that are less than the given value, all forces applied will be scaled
+ such that the 'fastest' atom will be receiving at maximum a force with the norm given in this setting.
+ By default it is set to \texttt{0.1}.
+\item \texttt{nt\_coordinate\_system}: Select the representation of the coordinate system, either
+ 'internal'\cite{libirc}, 'cartesianWithoutRotTrans', or 'cartesian'.
+Please be aware that this only affects the SD steps, while the BFGS micro cycles will always be performed with true
+ Cartesian coordinates due to constraints.
+\item \texttt{nt\_constrained\_atoms}: A list of atoms for which the Cartesian coordinates are constrained during the optimization.
+  It is given as a list containing the corresponding atom indices (e.g., \texttt{[0, 12, 32, 42]}). This setting can only be set for a true Cartesian coordinate system.
+\item \texttt{nt\_use\_micro\_cycles}: Use micro cycles inbetween forced steps that move the constrained atoms.
+In these micro cycles a BFGS/GDIIS will be used to optimize the geometry with the lhs/rhs atoms fixed in place.
+By default it is set to \texttt{true}.
+\item \texttt{nt\_fixed\_number\_of\_micro\_cycles}: Use a fixed number of micro cycles per macro cycle. If set to
+\texttt{false}, the number of micro cycles will grow with the number of macro iterations. It will grow by one micro
+cycle per macro iteration performed until \texttt{nt\_number\_of\_micro\_cycles} is reached. By default it is set to \texttt{true}.
+\item \texttt{nt\_number\_of\_micro\_cycles}: The maximum number of micro cycles used. By default it is set to \texttt{10}.
+\item \texttt{nt\_filter\_passes}: This task uses a Savitzky--Golay filter before analyzing the reaction curve. The number of passes
+through this filter is adjusted by the \texttt{nt\_filter\_passes} option. By default the number of passes is \texttt{10}.
+\item \texttt{convergence\_max\_iterations}: The maximum number of Newton trajectory macro iterations. By default set to \texttt{500}.
+\item \texttt{convergence\_attractive\_stop}: The distance between the forced atoms at which the algorithm stops and tries to identify
+a transition state guess. The given value is applied as a factor to the covalent radii of the compared atoms.
+In the case of an attractive force between two atoms, this criterion set to 1.0 would stop the NT procedure as soon as the two atoms
+are closer than 1.0 times the sum of their covalent radii.
+By default the value it is set to \texttt{0.9}.
+\item \texttt{stop\_on\_error}: Determine whether the program throws an exception for failed energy calculations or optimizations or simply returns \texttt{false} for the failed task and proceeds with the remaining tasks. In case of optimizations, the resulting structure after the maximum number of optimization steps has been reached, is still safed, when this is set to \texttt{false}. Especially, when using a SD type optimizer this option can be helpful. The default value is \texttt{true}.
+\item \texttt{silent\_stdout\_calculator}: Determine whether any standard output of the calculation itself should be printed. The default value is \texttt{true}.
 \end{itemize}
 
 The newton trajectory task uses a steepest descent algorithm internally; for this reason the following setting is available:

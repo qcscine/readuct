@@ -115,10 +115,13 @@ class Task {
   };
 
   static std::string falseTaskSettingsErrorMessage(const std::string& name) {
-    return "  You gave Task settings for the " + name + ",\n" + "  but the only possible setting for this task, is the\n" +
-           "  'stop_on_error' option to control whether Readuct fails\n" +
-           "  with a failed calculation or simply returns false.\n" +
-           "  You might want to specify the settings you put into the task settings\n" + "  in the systems section.";
+    return "  You gave Task settings for the " + name + ",\n" + "  but the only possible setting for this task, are the\n" +
+           "  'stop_on_error' option to control whether ReaDuct fails\n" +
+           "  with a failed calculation or simply returns false\n" +
+           "  and the 'silent_stdout_calculator' option to control whether\n"
+           "  the standard output of the calculator should be printed.\n"
+           "  You might want to specify the settings you put into the task settings\n" +
+           "  in the systems section.";
   }
 
  protected:

@@ -18,7 +18,7 @@ SCINE ReaDuct is a command-line tool that allows you to carry out
 
 For these calculations, it relies on a backend program to provide the necessary
 quantum chemical properties (such as nuclear gradients). Currently, SCINE Sparrow,
-SCINE XTB, CP2K, Gaussian, ORCA, and Turbomole are supported as backend programs.
+XTB, CP2K, Gaussian, ORCA, and Turbomole are supported as backend programs.
 
 License and Copyright Information
 ---------------------------------
@@ -33,8 +33,8 @@ Installation and Usage
 For instructions on how to install and use ReaDuct as well as for a detailed
 documentation of the entire functionality of ReaDuct, please consult the user
 manual found in the ``manual`` directory in in the repository.
-Alternatively the manual can also be found on the official GitHub website,
-on the SCINE website and in the hosted documentation.
+Alternatively the manual can also be found on the official GitHub website
+and on the SCINE website.
 
 How to Cite
 -----------

@@ -37,21 +37,23 @@ class NtOptimizationTask : public Task {
   }
 
   std::string name() const override {
-    return "NT Optimization";
+    return "NT1 Optimization";
   }
 
   bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
     warningIfMultipleInputsGiven();
     warningIfMultipleOutputsGiven();
 
+    bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
     std::shared_ptr<Core::Calculator> calc;
     if (!testRunOnly) { // leave out in case of task chaining --> attention calc is NULL
       // Note: _input is guaranteed not to be empty by Task constructor
       calc = copyCalculator(systems, _input.front(), name());
+      Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
       // Check system size
       if (calc->getStructure()->size() == 1) {
-        throw std::runtime_error("Cannot calculate NT optimization for monoatomic systems.");
+        throw std::runtime_error("Cannot calculate NT1 optimization for monoatomic systems.");
       }
     }
 
@@ -118,26 +120,15 @@ class NtOptimizationTask : public Task {
       if (found == std::string::npos) { // did not find harmless exception -> throw
         throw;
       }
-      cout << Core::Log::endl << "    No TS guess found in NT scan." << Core::Log::endl << Core::Log::endl;
+      cout << Core::Log::endl << "    No TS guess found in NT1 scan." << Core::Log::endl << Core::Log::endl;
       return false;
     }
 
     trajectory.close();
 
-    int maxiter = settings.getInt("convergence_max_iterations");
-    if (cycles < maxiter) {
-      cout << Core::Log::endl
-           << "    Converged after " << cycles << " iterations." << Core::Log::endl
-           << Core::Log::endl;
-    }
-    else {
-      cout << Core::Log::endl
-           << "    Stopped after " << maxiter << " iterations." << Core::Log::endl
-           << Core::Log::endl;
-      if (stopOnError) {
-        throw std::runtime_error("Problem: NT optimization did not converge.");
-      }
-    }
+    cout << Core::Log::endl
+         << "    Found TS guess after " << cycles << " iterations." << Core::Log::endl
+         << Core::Log::endl;
 
     // Print/Store results
     systems[outputSystem] = calc;
@@ -146,7 +137,7 @@ class NtOptimizationTask : public Task {
     Writer::write(xyz, *(calc->getStructure()));
     xyz.close();
 
-    return cycles < maxiter;
+    return true;
   }
 };
 

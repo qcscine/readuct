@@ -43,7 +43,7 @@ class ElementaryStepOptimizerBase {
    *
    * @return int  The final number of optimization cycles carried out.
    */
-  virtual int optimize() = 0;
+  virtual int optimize(Core::Log& log) = 0;
 
   /**
    * @brief Get the current reaction profile (at the end of an optimization, this is the final reaction profile).
@@ -126,7 +126,7 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
    *
    * @return int  The final number of optimization cycles carried out.
    */
-  int optimize() override {
+  int optimize(Core::Log& log) override {
     // Preparations
     EnergiesAndGradientsAlongSpline valuesAlongSpline;
     const auto& elements = _profile.getMolecularSpline().getElements();
@@ -171,7 +171,7 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
     };
 
     // Optimize
-    auto cycles = optimizer.optimize(variablesVector, update, check);
+    auto cycles = optimizer.optimize(variablesVector, update, check, log);
 
     return cycles;
   }

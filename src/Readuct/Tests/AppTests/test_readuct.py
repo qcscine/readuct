@@ -63,7 +63,7 @@ class Calculation:
                 self.energy = float(splitted_output[index].split()[4])
             if line == '     #    cm^-1':
                 self.lowest_frequency = float(splitted_output[index + 1].split()[1])
-        if self._input['tasks'][0]['type'] in ['afir', 'geoopt', 'ts', 'irc', 'nt']:
+        if self._input['tasks'][0]['type'] in ['afir', 'geoopt', 'ts', 'irc', 'nt', 'nt2']:
             self.optimized_structure = self.__load_xyz_file('default_system_output/default_system_output.xyz')
         if self._input['tasks'][0]['type'] in ['bspline']:
             self.interpolated_trajectory = self.__load_trajectory(
@@ -145,7 +145,7 @@ class TestReaductFast(TestReaductBase):
              'name': 'default_system',
              'method_family': 'PM6',
              'settings': {'self_consistence_criterion': 1e-7,
-                          'density_rmsd_criterion' : 1e-7}
+                          'density_rmsd_criterion': 1e-7}
              }
         ],
             'tasks': [
@@ -167,7 +167,7 @@ class TestReaductFast(TestReaductBase):
              'method_family': 'PM6',
              'wrong_keyword': 'something',
              'settings': {'self_consistence_criterion': 1e-7,
-                          'density_rmsd_criterion' : 1e-7}
+                          'density_rmsd_criterion': 1e-7}
              }
         ],
             'tasks': [
@@ -187,7 +187,7 @@ class TestReaductFast(TestReaductBase):
              'name': 'default_system',
              'method_family': 'PM6',
              'settings': {'self_consistence_criterion': 1e-7,
-                          'density_rmsd_criterion' : 1e-7}
+                          'density_rmsd_criterion': 1e-7}
              }
         ],
             'tasks': [
@@ -214,7 +214,7 @@ class TestReaductFast(TestReaductBase):
                 {'input': ['default_system'],
                  'type': 'sp',
                  }
-            ]
+        ]
         }
 
         calculation = Calculation(wrong_system_input)
@@ -234,12 +234,33 @@ class TestReaductFast(TestReaductBase):
                  'type': 'sp',
                  'settings': {'stop_on_error': False}
                  }
-            ]
+        ]
         }
 
         calculation = Calculation(wrong_system_input)
         success = calculation.run()
         assert success
+
+    def test_cellopt_with_unavailable_stress(self):
+        inp = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
+             'name': 'default_system',
+             'method_family': 'PM6',
+             'settings': {'self_consistence_criterion': 1e-7,
+                          'density_rmsd_criterion': 1e-7}
+             }
+        ],
+            'tasks': [
+            {'input': ['default_system'],
+             'type': 'opt',
+             'settings': {'unitcelloptimizer': 'bfgs'}
+             }
+        ],
+        }
+
+        calculation = Calculation(inp)
+        with self.assertRaises(subprocess.CalledProcessError) as context:
+            success = calculation.run()
 
     def test_single_point_task(self):
         default_input = {'systems': [
@@ -247,12 +268,14 @@ class TestReaductFast(TestReaductBase):
              'name': 'default_system',
              'method_family': 'PM6',
              'settings': {'self_consistence_criterion': 1e-7,
-                          'density_rmsd_criterion' : 1e-7}
+                          'density_rmsd_criterion': 1e-7}
              }
         ],
             'tasks': [
             {'input': ['default_system'],
              'type': 'sp',
+             'settings': {'silent_stdout_calculator': False,
+                          'spin_propensity_check': 1}
              }
         ]
         }
@@ -271,7 +294,7 @@ class TestReaductFast(TestReaductBase):
                 'spin_multiplicity': 2,
                 'spin_mode': 'unrestricted',
                 'self_consistence_criterion': 1e-7,
-                'density_rmsd_criterion' : 1e-7
+                'density_rmsd_criterion': 1e-7
             }
             }
         ],
@@ -294,7 +317,7 @@ class TestReaductFast(TestReaductBase):
              'method_family': 'PM6',
              'settings': {
                 'self_consistence_criterion': 1e-8,
-                'density_rmsd_criterion' : 1e-8
+                'density_rmsd_criterion': 1e-8
             }
             }
         ],
@@ -340,7 +363,7 @@ class TestReaductFast(TestReaductBase):
              'name': 'default_system',
              'method_family': 'PM6',
              'settings': {'self_consistence_criterion': 1e-7,
-                          'density_rmsd_criterion' : 1e-7}
+                          'density_rmsd_criterion': 1e-7}
              }
         ],
             'tasks': [
@@ -369,7 +392,7 @@ class TestReaductFast(TestReaductBase):
              'name': 'default_system',
              'method_family': 'PM6',
              'settings': {'self_consistence_criterion': 1e-7,
-                          'density_rmsd_criterion' : 1e-7,
+                          'density_rmsd_criterion': 1e-7,
                           'molecular_charge': -1}
              }
         ],
@@ -379,7 +402,7 @@ class TestReaductFast(TestReaductBase):
                  'type': 'geoopt',
                  'settings': {'bfgs_use_gdiis': False}
                  }
-            ]
+        ]
         }
         default_calculation = Calculation(default_input)
         success = default_calculation.run()
@@ -394,7 +417,7 @@ class TestReaductFast(TestReaductBase):
              'method_family': 'PM6',
                               'settings': {
                 'self_consistence_criterion': 1e-8,
-                'density_rmsd_criterion' : 1e-8
+                'density_rmsd_criterion': 1e-8
             }
             }
         ],
@@ -431,7 +454,7 @@ class TestReaductFast(TestReaductBase):
              'method_family': 'PM6',
              'settings': {
                  'self_consistence_criterion': 1e-8,
-                 'density_rmsd_criterion' : 1e-8
+                 'density_rmsd_criterion': 1e-8
             }
             }
         ],
@@ -493,7 +516,7 @@ class TestReaductFast(TestReaductBase):
                 'method_family': 'PM6',
                 'settings': {'molecular_charge': -2,
                              'self_consistence_criterion': 1e-7,
-                             'density_rmsd_criterion' : 1e-7}
+                             'density_rmsd_criterion': 1e-7}
             }
         ],
             'tasks': [
@@ -526,7 +549,7 @@ class TestReaductFast(TestReaductBase):
                 'settings': {
                     'molecular_charge': -1,
                     'self_consistence_criterion': 1e-7,
-                    'density_rmsd_criterion' : 1e-7
+                    'density_rmsd_criterion': 1e-7
                 }
             }
         ],
@@ -586,7 +609,7 @@ class TestReaductFast(TestReaductBase):
             'settings': {
                 'molecular_charge': -1,
                 'self_consistence_criterion': 1e-7,
-                'density_rmsd_criterion' : 1e-7
+                'density_rmsd_criterion': 1e-7
             }
         }],
             'tasks': [{
@@ -617,6 +640,42 @@ class TestReaductFast(TestReaductBase):
         # The following check yields 2.3 in release mode, but 2.5 in debug mode
         self.assertAlmostEqual(actual, 2.4, places=0)
 
+    def test_nt2_task(self):
+        default_input = {'systems': [{
+            'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'sn2_start.xyz'),
+            'name': 'default_system',
+            'method_family': 'dftb3',
+            'settings': {
+                'molecular_charge': -1,
+                'self_consistence_criterion': 1e-7,
+                'density_rmsd_criterion': 1e-7
+            }
+        }],
+            'tasks': [{
+                'input': ['default_system'],
+                'output': ['default_system_output'],
+                'type': 'nt2',
+                'settings': {
+                    'nt_associations': [0, 1],
+                    'nt_total_force_norm': 0.02,
+                    'nt_coordinate_system': 'cartesian',
+                    'sd_factor': 0.5,
+                    'convergence_max_iterations': 1000,
+                    'convergence_attractive_stop': 0.9,
+                },
+            }]
+        }
+
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
+        loaded = default_calculation.optimized_structure
+        actual = np.linalg.norm(np.array(loaded[0][1:]) - np.array(loaded[1][1:]))
+        self.assertAlmostEqual(round(actual, 2), 2.40, places=2)
+        actual = np.linalg.norm(np.array(loaded[5][1:]) - np.array(loaded[1][1:]))
+        # The following check yields 2.3 in release mode, but 2.5 in debug mode
+        self.assertAlmostEqual(actual, 2.4, places=0)
+
     def test_irc_task(self):
         default_input = {'systems': [
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2_ts.xyz'),
@@ -624,7 +683,7 @@ class TestReaductFast(TestReaductBase):
              'method_family': 'PM6',
                               'settings': {
                 'self_consistence_criterion': 1e-8,
-                'density_rmsd_criterion' : 1e-8
+                'density_rmsd_criterion': 1e-8
             }
             }
         ],
@@ -663,7 +722,7 @@ class TestReaductFast(TestReaductBase):
              'settings': {
                 'molecular_charge': -1,
                 'self_consistence_criterion': 1e-7,
-                'density_rmsd_criterion' : 1e-7
+                'density_rmsd_criterion': 1e-7
             }
             },
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'end.xyz'),
@@ -672,7 +731,7 @@ class TestReaductFast(TestReaductBase):
              'settings': {
                 'molecular_charge': -1,
                 'self_consistence_criterion': 1e-7,
-                'density_rmsd_criterion' : 1e-7
+                'density_rmsd_criterion': 1e-7
             }
             }
         ],
@@ -878,12 +937,12 @@ class TestReaductFast(TestReaductBase):
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2_1.xyz'),
              'name': 'start',
              'method_family': 'PM6',
-             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion' : 1e-7}
+             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion': 1e-7}
              },
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2_2.xyz'),
              'name': 'end',
              'method_family': 'PM6',
-             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion' : 1e-7}
+             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion': 1e-7}
              }
         ],
             'tasks': [
@@ -916,12 +975,12 @@ class TestReaductFast(TestReaductBase):
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2_1.xyz'),
              'name': 'start',
              'method_family': 'PM6',
-             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion' : 1e-7}
+             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion': 1e-7}
              },
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2_3.xyz'),
              'name': 'end',
              'method_family': 'PM6',
-             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion' : 1e-7}
+             'settings': {'self_consistence_criterion': 1e-7, 'density_rmsd_criterion': 1e-7}
              }
         ],
             'tasks': [
@@ -961,7 +1020,7 @@ class TestReaductSlow(TestReaductBase):
              'settings': {
                  'molecular_charge': -2,
                  'self_consistence_criterion': 1e-7,
-                 'density_rmsd_criterion' : 1e-7
+                 'density_rmsd_criterion': 1e-7
             }
             },
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'end2.xyz'),
@@ -970,7 +1029,7 @@ class TestReaductSlow(TestReaductBase):
              'settings': {
                  'molecular_charge': -2,
                  'self_consistence_criterion': 1e-7,
-                 'density_rmsd_criterion' : 1e-7
+                 'density_rmsd_criterion': 1e-7
             }
             }
         ],

@@ -52,10 +52,12 @@ class TsOptimizationTask : public Task {
     warningIfMultipleInputsGiven();
     warningIfMultipleOutputsGiven();
 
+    bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
     std::shared_ptr<Core::Calculator> calc;
     if (!testRunOnly) { // leave out in case of task chaining --> attention calc is NULL
       // Note: _input is guaranteed not to be empty by Task constructor
       calc = copyCalculator(systems, _input.front(), name());
+      Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
       // Check system size
       if (calc->getStructure()->size() == 1) {
@@ -447,6 +449,15 @@ class TsOptimizationTask : public Task {
       contributions.push_back(contribution);
     }
     int selection = std::distance(contributions.begin(), std::max_element(contributions.begin(), contributions.end()));
+    double tolerance = contributions[selection] * 0.1;
+    // Contributions are sorted by wave number
+    //   -> pick the first one that fits into the tolerance.
+    for (unsigned int i = 0; i < contributions.size(); i++) {
+      if ((contributions[selection] - contributions[i]) < tolerance) {
+        selection = i;
+        break;
+      }
+    }
     _logger->output << "    Automatically selected mode " << std::to_string(selection) << " with wave number "
                     << std::to_string(waveNumbers[selection]) << " cm^-1" << Core::Log::endl;
     return selection;

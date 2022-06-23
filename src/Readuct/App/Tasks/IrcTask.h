@@ -53,10 +53,12 @@ class IrcTask : public Task {
           << "  Warning: To store IRC results in a new location two output systems have to be specified.\n";
     }
 
+    bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
     std::shared_ptr<Core::Calculator> calc;
     if (!testRunOnly) { // leave out in case of task chaining --> attention calc is NULL
       // Note: _input is guaranteed not to be empty by Task constructor
       calc = copyCalculator(systems, _input.front(), name());
+      Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
       // Check system size
       if (calc->getStructure()->size() == 1) {
@@ -216,6 +218,9 @@ class IrcTask : public Task {
     // Add observer
     oldEnergy = 0.0;
     oldParams.resize(0);
+    // Reset optimizer
+    optimizer->setSettings(settings);
+    optimizer->reset();
     // Trajectory stream
     boost::filesystem::path dirB(((_output.size() > 1) ? _output[1] : _input[0]));
     boost::filesystem::create_directory(dirB);
@@ -241,6 +246,7 @@ class IrcTask : public Task {
 
     // Run optimization
     structure = systems.at(_input[0])->getStructure();
+    cycles = 0;
     try {
       cycles = optimizer->optimize(*structure, *_logger, ircModeVector, false);
     }

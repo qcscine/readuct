@@ -11,7 +11,7 @@
 #include "Tasks/Task.h"
 /* Scine */
 #include <Core/Interfaces/Calculator.h>
-#include <Utils/CalculatorBasics/Results.h>
+#include <Utils/CalculatorBasics.h>
 #include <Utils/IO/FormattedIOUtils.h>
 #include <Utils/IO/Yaml.h>
 #include <Utils/Settings.h>
@@ -56,9 +56,18 @@ class SinglePointTask : public Task {
     bool stopOnError = stopOnErrorExtraction(taskSettings);
     bool requireCharges = taskSettings.extract("require_charges", true);
     bool requireGradients = taskSettings.extract("require_gradients", false);
+    bool requireStressTensor = taskSettings.extract("require_stress_tensor", false);
+    bool requireBondOrders = taskSettings.extract("require_bond_orders", false);
     bool requireOrbitalEnergies = taskSettings.extract("orbital_energies", false);
+    bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
+    int spinPropensityCheck = taskSettings.extract("spin_propensity_check", 0);
     if (!taskSettings.empty()) {
-      throw std::logic_error("Specified a task setting that is not available for this task");
+      std::string keyListing = "\n";
+      auto keys = taskSettings.getKeys();
+      for (const auto& key : keys) {
+        keyListing += "'" + key + "'\n";
+      }
+      throw std::logic_error("Specified one or more task settings that are not available for this task:" + keyListing);
     }
 
     if (testRunOnly) {
@@ -67,11 +76,14 @@ class SinglePointTask : public Task {
 
     // Note: _input is guaranteed not to be empty by Task constructor
     auto calc = copyCalculator(systems, _input.front(), name());
+    Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
     // Check for available properties
     bool chargesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::AtomicCharges);
     bool gradientsAvailable = calc->possibleProperties().containsSubSet(Utils::Property::Gradients);
+    bool stressTensorAvailable = calc->possibleProperties().containsSubSet(Utils::Property::StressTensor);
     bool orbitalEnergiesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::OrbitalEnergies);
+    bool bondOrdersAvailable = calc->possibleProperties().containsSubSet(Utils::Property::BondOrderMatrix);
     if (requireCharges && !chargesAvailable) {
       throw std::logic_error("Charges required, but chosen calculator does not provide them.\n"
                              "If you do not need charges, set 'require_charges' to 'false' in the task settings");
@@ -79,21 +91,31 @@ class SinglePointTask : public Task {
     if (requireGradients && !gradientsAvailable) {
       throw std::logic_error("Gradients required, but chosen calculator does not provide them.");
     }
+    if (requireStressTensor && !stressTensorAvailable) {
+      throw std::logic_error("Stress tensor required, but chosen calculator does not provide it.");
+    }
     if (requireOrbitalEnergies && !orbitalEnergiesAvailable) {
       throw std::logic_error("Orbital energies required, but chosen calculator does not provide them.");
     }
-
+    if (requireBondOrders && !bondOrdersAvailable) {
+      throw std::logic_error("Bond orders required, but chosen calculator does not provide them.");
+    }
     // Calculate energy, and possibly atomic charges and/or gradients
     Utils::PropertyList requiredProperties = Utils::Property::Energy;
     if (requireCharges) {
       requiredProperties.addProperty(Utils::Property::AtomicCharges);
     }
-
     if (requireGradients) {
       requiredProperties.addProperty(Utils::Property::Gradients);
     }
+    if (requireStressTensor) {
+      requiredProperties.addProperty(Utils::Property::StressTensor);
+    }
     if (requireOrbitalEnergies) {
       requiredProperties.addProperty(Utils::Property::OrbitalEnergies);
+    }
+    if (requireBondOrders) {
+      requiredProperties.addProperty(Utils::Property::BondOrderMatrix);
     }
 
     try {
@@ -107,10 +129,33 @@ class SinglePointTask : public Task {
       if (stopOnError) {
         throw;
       }
-      _logger->warning
+      _logger->error
           << "  " + name() + " was not successful with error:\n  " + boost::current_exception_diagnostic_information()
           << Core::Log::endl;
       return false;
+    }
+
+    if (spinPropensityCheck != 0) {
+      calc = Utils::CalculationRoutines::spinPropensity(*calc, *_logger, spinPropensityCheck);
+      // some calculators are lazy and don't copy properties, hence we recalculate if necessary
+      if (!calc->getRequiredProperties().containsSubSet(requiredProperties)) {
+        try {
+          calc->setRequiredProperties(requiredProperties);
+          calc->calculate(name());
+          if (!calc->results().get<Utils::Property::SuccessfulCalculation>()) {
+            throw std::runtime_error(name() + " was not successful");
+          }
+        }
+        catch (...) {
+          if (stopOnError) {
+            throw;
+          }
+          _logger->error
+              << "  " + name() + " was not successful with error:\n  " + boost::current_exception_diagnostic_information()
+              << Core::Log::endl;
+          return false;
+        }
+      }
     }
 
     // Store result
@@ -147,6 +192,28 @@ class SinglePointTask : public Task {
       auto gradients = calc->results().get<Utils::Property::Gradients>();
       cout << "  Gradients (hartree / bohr):\n\n";
       cout << [&gradients](std::ostream& os) { Utils::matrixPrettyPrint(os, gradients); };
+      cout << Core::Log::nl;
+    }
+    // Print stress tensor
+    if (requireStressTensor) {
+      Eigen::Matrix3d stressTensor = calc->results().get<Utils::Property::StressTensor>();
+      cout << "  Stress tensor (hartree / bohr^3):\n\n";
+      cout << [&stressTensor](std::ostream& os) { Utils::matrixPrettyPrint(os, stressTensor); };
+      cout << Core::Log::nl;
+    }
+    // Print bond orders
+    if (requireBondOrders) {
+      cout << "  Atom#1 Atom#2 Bond Order\n\n";
+      auto bos = calc->results().get<Utils::Property::BondOrderMatrix>();
+      const auto& mat = bos.getMatrix();
+      for (int i = 0; i < mat.outerSize(); i++) {
+        for (typename Eigen::SparseMatrix<double>::InnerIterator it(mat, i); it; ++it) {
+          if (it.value() > 0.3 && it.row() < it.col()) {
+            cout.printf("  %6d %6d %+16.9f\n", it.row(), it.col(), it.value());
+          }
+        }
+      }
+      cout << Core::Log::nl << Core::Log::endl;
     }
     // Print orbital energies
     if (requireOrbitalEnergies) {

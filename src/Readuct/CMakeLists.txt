@@ -17,7 +17,7 @@ function(target_set_rpath)
   set(options "")
   set(oneValueArgs "")
   set(multiValueArgs "TARGETS;UNIX_RPATH")
-  cmake_parse_arguments(SCINE_RPATH "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+  cmake_parse_arguments(SCINE_RPATH_TARGETS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
   if(APPLE)
     string(REPLACE $ORIGIN @loader_path osx_rpath "${SCINE_RPATH_UNIX_RPATH}")
     set_target_properties(${SCINE_RPATH_TARGETS} PROPERTIES

@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Release 4.0.0
+-------------
+
+- Add 2nd Newton trajectory scan algorithm (NT2)
+- Update automatic TS mode picking to respect frequencies to some degree
+- Deprecate BondOrderTask and allow bond order calculation in SinglePointTask
+- Add option for spin propensity check
+- Add option to optimize periodic boundaries in geometry optimization
+
 Release 3.0.0
 -------------
 

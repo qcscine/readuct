@@ -63,6 +63,7 @@ class BSplineInterpolationTask : public Task {
     tangentFileName_ = taskSettings.extract("tangent_file", tangentFileName_);
     coordinateThresholdForMaximumExtraction_ =
         taskSettings.extract("extract_threshold", coordinateThresholdForMaximumExtraction_);
+    bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
 
     // If no errors encountered until here, the basic settings should be alright
     if (testRunOnly) {
@@ -72,6 +73,8 @@ class BSplineInterpolationTask : public Task {
     // Note: _input is guaranteed not to be empty by Task constructor
     auto calc = copyCalculator(systems, _input.front(), name());
     auto secondCalculator = systems.at(_input.back());
+    Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
+    Utils::CalculationRoutines::setLog(*secondCalculator, true, true, !silentCalculator);
     if (calc->settings() != secondCalculator->settings()) {
       _logger->warning
           << "  Warning: The given systems have different settings. Only taking first and ignoring second.\n";
@@ -296,7 +299,7 @@ class BSplineInterpolationTask : public Task {
                              "this optimization Task");
     }
 
-    const int cycles = optimizer->optimize();
+    const int cycles = optimizer->optimize(*_logger);
     const int maxiter = settings.getInt("convergence_max_iterations");
 
     bool converged = cycles < maxiter;

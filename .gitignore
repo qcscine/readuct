@@ -14,6 +14,8 @@ tmp_clang_*
 compile_commands.json
 .lvimrc
 *.vim
+.DS_Store
+*~
 
 # manual output
 manual/readuct_manual.aux
@@ -30,3 +32,8 @@ manual/readuct_manual.ilg
 
 # conan ci files
 conan/*
+
+# python
+*/__pycache__/
+*.pyc
+.pytest_cache/

@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
   // Handle help
   if (optionsMap.count("help") > 0 || optionsMap.count("config") == 0) {
     cout << optionsDescription << Core::Log::endl;
-    return 1;
+    return 0;
   }
 
   // Load input file
@@ -233,14 +233,14 @@ int main(int argc, char* argv[]) {
     const auto& outpt = tasks[i]->output();
 
     cout << "  Input System(s):  " + tasks[i]->input()[0] << Core::Log::endl;
-    for (unsigned int i = 1; i < inpt.size(); i++) {
-      cout << "                    " + inpt[i] << Core::Log::endl;
+    for (unsigned int j = 1; j < inpt.size(); j++) {
+      cout << "                    " + inpt[j] << Core::Log::endl;
     }
     cout << Core::Log::endl;
     if (!outpt.empty()) {
       cout << "  Output System(s): " + outpt[0] << Core::Log::endl;
-      for (unsigned int i = 1; i < outpt.size(); i++) {
-        cout << "                    " + outpt[i] << Core::Log::endl;
+      for (unsigned int j = 1; j < outpt.size(); j++) {
+        cout << "                    " + outpt[j] << Core::Log::endl;
       }
       cout << Core::Log::endl;
     }

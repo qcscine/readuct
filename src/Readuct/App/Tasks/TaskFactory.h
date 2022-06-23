@@ -13,6 +13,7 @@
 #include "Tasks/GeometryOptimizationTask.h"
 #include "Tasks/HessianTask.h"
 #include "Tasks/IrcTask.h"
+#include "Tasks/NtOptimization2Task.h"
 #include "Tasks/NtOptimizationTask.h"
 #include "Tasks/SinglePointTask.h"
 #include "Tasks/Task.h"
@@ -62,8 +63,12 @@ class TaskFactory {
       task = std::make_unique<IrcTask>(input, output, logger);
     }
     else if (name == "NT" || name == "NEWTONTRAJECTORY" || name == "NTOPTIMIZATION" ||
-             name == "NEWTONTRAJECTORYOPTIMIZATION" || name == "NTOPT") {
+             name == "NEWTONTRAJECTORYOPTIMIZATION" || name == "NTOPT" || name == "NT1") {
       task = std::make_unique<NtOptimizationTask>(input, output);
+    }
+    else if (name == "NT2" || name == "NEWTONTRAJECTORY2" || name == "NTOPTIMIZATION2" ||
+             name == "NEWTONTRAJECTORYOPTIMIZATION2" || name == "NTOPT2") {
+      task = std::make_unique<NtOptimization2Task>(input, output);
     }
     else if (name == "HESSIAN" || name == "FREQUENCY_ANALYSIS" || name == "FREQUENCYANALYSIS" || name == "FREQ" ||
              name == "FREQUENCY" || name == "FREQUENCIES") {
