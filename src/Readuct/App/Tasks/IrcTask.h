@@ -45,7 +45,9 @@ class IrcTask : public Task {
     return "IRC Optimizations";
   }
 
-  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
+  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false,
+           std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>
+               observers = {}) const final {
     warningIfMultipleInputsGiven();
     // Warn if only one output system was specified
     if (_output.size() == 1) {
@@ -158,6 +160,17 @@ class IrcTask : public Task {
     };
     optimizer->addObserver(forward);
 
+    // Add custom observers forward
+    auto customObserversForward = [&calc, &observers](const int& cycle, const double& /*energy*/,
+                                                      const Eigen::VectorXd& /*params*/) {
+      for (auto& observer : observers) {
+        auto atoms = calc->getStructure();
+        Utils::Results& results = calc->results();
+        observer(cycle, *atoms, results, "irc_forward");
+      }
+    };
+    optimizer->addObserver(customObserversForward);
+
     // Run optimization
     auto structure = systems.at(_input[0])->getStructure();
     int cycles = 0;
@@ -243,6 +256,17 @@ class IrcTask : public Task {
     };
     optimizer->clearObservers();
     optimizer->addObserver(backward);
+
+    // Add custom observers backward
+    auto customObserversBackward = [&calc, &observers](const int& cycle, const double& /*energy*/,
+                                                       const Eigen::VectorXd& /*params*/) {
+      for (auto& observer : observers) {
+        auto atoms = calc->getStructure();
+        Utils::Results& results = calc->results();
+        observer(cycle, *atoms, results, "irc_backward");
+      }
+    };
+    optimizer->addObserver(customObserversBackward);
 
     // Run optimization
     structure = systems.at(_input[0])->getStructure();

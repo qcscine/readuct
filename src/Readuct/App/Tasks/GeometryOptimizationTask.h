@@ -46,7 +46,9 @@ class GeometryOptimizationTask : public Task {
     return "Geometry Optimization";
   }
 
-  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
+  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false,
+           std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>
+               observers = {}) const final {
     warningIfMultipleInputsGiven();
     warningIfMultipleOutputsGiven();
     bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
@@ -122,6 +124,16 @@ class GeometryOptimizationTask : public Task {
       Writer::write(trajectory, *structure, std::to_string(energy));
     };
     optimizer->addObserver(func);
+
+    // Add custom observers
+    auto customObservers = [&calc, &observers](const int& cycle, const double& /*energy*/, const Eigen::VectorXd& /*params*/) {
+      for (auto& observer : observers) {
+        auto atoms = calc->getStructure();
+        Utils::Results& results = calc->results();
+        observer(cycle, *atoms, results, "geometry_optimization");
+      }
+    };
+    optimizer->addObserver(customObservers);
 
     // Run optimization
     auto structure = calc->getStructure();

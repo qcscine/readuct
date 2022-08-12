@@ -16,6 +16,8 @@
 #include "Tasks/Task.h"
 #include "Tasks/TsOptimizationTask.h"
 #include <Core/Interfaces/Calculator.h>
+#include <pybind11/eigen.h>
+#include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <iostream>
@@ -27,8 +29,10 @@ namespace {
 using SystemsMap = std::map<std::string, std::shared_ptr<Core::Calculator>>;
 
 template<class TaskType>
-std::pair<SystemsMap, bool> run(SystemsMap systems, std::vector<std::string> inputNames, bool testRunOnly,
-                                const pybind11::kwargs& kwargs) {
+std::pair<SystemsMap, bool>
+run(SystemsMap systems, std::vector<std::string> inputNames, bool testRunOnly,
+    std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>> observers,
+    const pybind11::kwargs& kwargs) {
   Utils::UniversalSettings::ValueCollection settingValues;
 
   std::vector<std::string> output;
@@ -92,7 +96,7 @@ std::pair<SystemsMap, bool> run(SystemsMap systems, std::vector<std::string> inp
 
   // Run the task
   TaskType task(std::move(inputNames), std::move(output), std::move(logger));
-  const bool success = task.run(systems, settingValues, testRunOnly);
+  const bool success = task.run(systems, settingValues, testRunOnly, observers);
 
   return {systems, success};
 }
@@ -101,40 +105,68 @@ std::pair<SystemsMap, bool> run(SystemsMap systems, std::vector<std::string> inp
 
 void init_tasks(pybind11::module& m) {
   m.def("run_single_point_task", &run<Readuct::SinglePointTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
   m.def("run_sp_task", &run<Readuct::SinglePointTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"),
-        pybind11::arg("test_run_only") = false);
+        pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_optimization_task", &run<Readuct::GeometryOptimizationTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
   m.def("run_opt_task", &run<Readuct::GeometryOptimizationTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_bond_order_task", &run<Readuct::BondOrderTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_hessian_task", &run<Readuct::HessianTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
   m.def("run_freq_task", &run<Readuct::HessianTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"),
-        pybind11::arg("test_run_only") = false);
+        pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_transition_state_optimization_task", &run<Readuct::TsOptimizationTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
   m.def("run_tsopt_task", &run<Readuct::TsOptimizationTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_irc_task", &run<Readuct::IrcTask>, pybind11::arg("systems"), pybind11::arg("names_of_used_systems"),
-        pybind11::arg("test_run_only") = false);
+        pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_nt_task", &run<Readuct::NtOptimizationTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_nt2_task", &run<Readuct::NtOptimization2Task>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_afir_task", &run<Readuct::AfirOptimizationTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_bspline_task", &run<Readuct::BSplineInterpolationTask>, pybind11::arg("systems"),
-        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false);
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 }

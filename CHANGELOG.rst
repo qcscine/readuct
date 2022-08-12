@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Release 4.1.0
+-------------
+
+- Allow for custom observers in optimization tasks
+- Various improvements
+
 Release 4.0.0
 -------------
 

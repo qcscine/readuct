@@ -25,7 +25,6 @@ setuptools.setup(
     author_email="scine@phys.chem.ethz.ch",
     description="Open source quantum chemistry library",
     long_description=long_description,
-    long_description_content_type="text/markdown",
     url="https://www.scine.ethz.ch",
     packages=["scine_readuct"],
     package_data={"scine_readuct": ["scine_readuct.*" @readuct_PY_DEPS@]},

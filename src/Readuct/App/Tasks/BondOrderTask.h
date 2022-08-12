@@ -42,7 +42,9 @@ class BondOrderTask : public Task {
     return "Bond Order Calculation";
   }
 
-  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
+  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false,
+           std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>
+               observers = {}) const final {
     warningIfMultipleInputsGiven();
     warningIfMultipleOutputsGiven();
 
@@ -51,6 +53,9 @@ class BondOrderTask : public Task {
     bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
     if (!taskSettings.empty()) {
       throw std::logic_error(falseTaskSettingsErrorMessage(name()));
+    }
+    if (observers.size() > 0) {
+      throw std::logic_error("BondOrderTask does not feature algorithm accepting observers, yet one was given");
     }
     // If no errors encountered until here, the basic settings should be alright
     if (testRunOnly) {

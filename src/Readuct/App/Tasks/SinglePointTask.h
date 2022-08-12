@@ -48,7 +48,9 @@ class SinglePointTask : public Task {
     return "Single Point Calculation";
   }
 
-  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
+  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false,
+           std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>
+               observers = {}) const final {
     warningIfMultipleInputsGiven();
     warningIfMultipleOutputsGiven();
 
@@ -68,6 +70,9 @@ class SinglePointTask : public Task {
         keyListing += "'" + key + "'\n";
       }
       throw std::logic_error("Specified one or more task settings that are not available for this task:" + keyListing);
+    }
+    if (observers.size() > 0) {
+      throw std::logic_error("SinglePointTask does not feature algorithm accepting observers, yet one was given");
     }
 
     if (testRunOnly) {

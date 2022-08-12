@@ -66,10 +66,15 @@ class Task {
    * @brief Executes the actual task represented by this class.
    * @param systems A map for all current and new systems.
    * @param taskSettings The settings for this run of the task.
+   * @param test If true does not run task, but checks input.
+   * @param observers Adds these additional observers to optimization algorithms.
    * @return true If successful.
    * @return false If not successful.
    */
-  virtual bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool test = false) const = 0;
+  virtual bool
+  run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool test = false,
+      std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>
+          observers = {}) const = 0;
   /**
    * @brief Getter for the expected names of the input systems.
    * @return const std::vector<std::string>& The names of all systems expected as inputs.

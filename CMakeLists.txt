@@ -4,8 +4,8 @@ cmake_minimum_required(VERSION 3.9)
 # tree must then provide a properly namespaced target with the same name as
 # your project.
 project(Readuct
-  VERSION 4.0.0
-  DESCRIPTION "This is the SCINE module Readuct."
+  VERSION 4.1.0
+  DESCRIPTION "This is the SCINE module ReaDuct."
 )
 
 # Set the module path for universal cmake files inclusion
@@ -27,7 +27,7 @@ if(BUILD_SPARROW)
   import_sparrow()
 endif()
 
-option(BUILD_XTB "Will download and build SCINE Xtb (the SCINE Wrapper around the xtb API by the Grimme group)." OFF)
+option(BUILD_XTB "Will download and build SCINE Xtb (the SCINE wrapper around the xtb API by the Grimme group)." OFF)
 if(BUILD_XTB)
   include(ImportXtb)
   import_xtb()

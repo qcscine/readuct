@@ -15,7 +15,7 @@
 
 %%
 % Book metadata
-\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 4.0.0}}
+\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 4.1.0}}
 \author[The SCINE ReaDuct Developers]{The SCINE ReaDuct Developers: \newline \noindent Christoph Brunken, Katja-Sophia Csizi, Stephanie Grimmel, Stefan Gugler, Jan-Grimo Sobez, Miguel Steiner, Paul T\"urtscher, Jan Unsleber, Alain C. Vaucher, Thomas Weymuth, and Markus Reiher}
 \publisher{ETH Z\"urich}
 
@@ -219,15 +219,14 @@ WARRANTIES OR CONDITIONS OF ANY KIND}, either express or implied. \index{license
 \chapter{Introduction}
 
 The SCINE project requires stable algorithms for the refinement of elementary-reaction paths and associated transition-state
-structures. The SCINE \textsc{ReaDuct} module was designed to serve this purpose and can be driven from SCINE \textsc{Interactive}
-and SCINE \textsc{Chemoton}. However, as with all SCINE modules it is a stand-alone program that can drive standard quantum
-chemical software.
+structures. The SCINE \textsc{ReaDuct} module was designed to serve this purpose and can be driven from SCINE \textsc{Chemoton}.
+However, as with all SCINE modules it is a stand-alone program that can drive standard quantum chemical software.
 
 SCINE \textsc{ReaDuct} is a command-line tool that allows to carry out structure optimizations, transition state searches
 and intrinsic reaction coordinate (IRC) calculations among other things.
 For these calculations, it relies on a backend program to provide the necessary quantum chemical properties (such
 as nuclear gradients). Currently, SCINE \textsc{Sparrow}\cite{sparrow}, \textsc{Gaussian}\cite{gaussian09}, ORCA\cite{orca},
-\textsc{Turbomole}\cite{turbomole}, CP2K\cite{cp2k}, and xtb\cite{xtb} are supported as backend programs.
+\textsc{Turbomole}\cite{turbomole}, CP2K\cite{cp2k}, \textsc{Serenity}\cite{serenity}, and xtb\cite{xtb} are supported as backend programs.
 
 In this manual, we describe the installation of the software, an example calculation as a hands-on
 introduction to the program, and the most import functions and options.\footnote{Throughout this manual, the most
@@ -257,7 +256,7 @@ rather than being confused by possibly long times waiting for more involved quan
 \textsc{ReaDuct} is distributed as an open source code. In order to compile \textsc{ReaDuct} from this source code, you need
 \begin{itemize}
  \item a C++ compiler supporting the C++17 standard (GCC at least 7.3.0),
- \item cmake (at least 3.9.0),
+ \item CMake (at least 3.9.0),
  \item the Boost library (at least 1.65.0), and
  \item the Eigen3 library (at least 3.3.2).
 \end{itemize}
@@ -292,7 +291,7 @@ All functionality is accessed via an input file following the YAML syntax. The p
 command
 
 \begin{verbatim}
-readuct <input file>
+readuct -c <input file>
 \end{verbatim}
 
 where you have to give the actual filename of your input file for \texttt{<input file>}.
@@ -362,7 +361,7 @@ structure optimization will be carried out; the structure will be optimized with
 
 \subsection{SCINE \textsc{Sparrow}}
 
-SCINE \textsc{Sparrow} is fully supported by SCINE \textsc{ReaDuct}. If built with the cmake option \texttt{-DBUILD\_SPARROW=ON}
+SCINE \textsc{Sparrow} is fully supported by SCINE \textsc{ReaDuct}. If built with the CMake option \texttt{-DBUILD\_SPARROW=ON}
 as described in section~\nameref{ch:installation}, it will be automatically downloaded and integrated into \textsc{ReaDuct}
 at compile time.
 
@@ -374,7 +373,7 @@ list of these options (the option names are identical to the command line option
 
 \subsection{External Programs}
 
-SCINE \textsc{ReaDuct} supports calculations with \textsc{ORCA}\cite{orca} (version 4.2.0), \textsc{Turbomole}\cite{turbomole} (version 7.4.1), \textsc{CP2K} (8.1)\cite{cp2k}, \textsc{Gaussian}\cite{gaussian09} (version 09 Rev. D01), and xtb (6.4.1)\cite{xtb}. Support is currently not fully tested. For each program, there might be specific calculation types and/or settings which do not work. Also, we cannot guarantee compatibility with any version different from the one's mentioned above since we have no control over the output format of an external program. If you encounter any problems when
+SCINE \textsc{ReaDuct} supports calculations with \textsc{ORCA}\cite{orca} (version 4.2.0), \textsc{Turbomole}\cite{turbomole} (version 7.4.1), \textsc{CP2K} (8.1)\cite{cp2k}, \textsc{Gaussian}\cite{gaussian09} (version 09 Rev. D01), \textsc{Serenity}\cite{serenity} (1.4), and xtb (6.4.1)\cite{xtb}. Support is currently not fully tested. For each program, there might be specific calculation types and/or settings which do not work. Also, we cannot guarantee compatibility with any version different from the one's mentioned above since we have no control over the output format of an external program. If you encounter any problems when
 using one of these software packages together with \textsc{ReaDuct}, please write a short message to \href{scine@phys.chem.ethz.ch}{scine@phys.chem.ethz.ch}.
 
 For these programs, the following settings can be applied.
@@ -385,7 +384,7 @@ it is zero.
 it is 1.
 \item \texttt{spin\_mode}: The spin mode that should be employed for the calculation. Available spin modes are: \texttt{restricted, unrestricted, restricted\_open\_shell, none} and \texttt{any}, where in the latter case, the program determines the spin mode automatically. Note that not every program supports all of these options.
 \item \texttt{external\_program\_nprocs}: The number of processors to use in the calculations. By default, it is one, \textit{i.e.},
-a serial calculation is carried out. For \textsc{ORCA}, please note that you have to specify the full \textsc{ORCA} binary path in case you want to do a parallel calculation.
+a serial calculation is carried out. For \textsc{ORCA}, please note that you have to specify the full \textsc{ORCA} binary path in case you want to do a parallel calculation. For \textsc{Serenity}, this setting is currently not supported.
 \item \texttt{base\_working\_directory}: This specifies the directory in which the files for the calculations will
 be stored. By default, this is set to the current directory. For each calculation, a new directory will be
 created inside the directory specified by \texttt{base\_working\_directory} to keep the files related to that specific
@@ -450,14 +449,18 @@ The path to the directory containing the \textsc{Turbomole} binaries must be set
 You can specify the following settings in the settings block:
 \begin{itemize}
 \item \texttt{method}:
-This specifies the calculation method to be used. By default, it is \texttt{'PBE'}. Dispersion correction can be added to this method string, e.g: \texttt{'PBE-D3BJ'}. Current supported dispersion corrections are D3\cite{grimmeD3} and D3BJ.\cite{bjDamping}
+This specifies the calculation method to be used. By default, it is \texttt{'PBE'}. Dispersion correction can be added to this method string, e.g: \texttt{'PBE-D3BJ'}. Current supported dispersion corrections are D3\cite{grimmeD3}, D3BJ\cite{bjDamping}, and D4\cite{d4Damping}.
+Note that the name of the method should match the string in a typical \textsc{Turbomole} input file, but without a delimiter, e.g: "B3LYP" instead of "B3-LYP".
 \item \texttt{basis\_set}: This specifies the basis set string. By default, Turbomole assigns the \texttt{'def-SV(P)'} basis set. You can specify any valid \textsc{Turbomole} basis set string from the Karlsruhe basis sets\cite{karlsruheBasisSets}, Dunning's correlation-consistent basis sets\cite{dunningBasisSets} or Pople-style basis sets\cite{popleBasisSets} (see the \textsc{Turbomole} manual for a complete list).
 \item \texttt{solvation}: This specifies the implicit solvation model. By default, it is empty. Currently, you can specify \texttt{cosmo}.
-\item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. Current supported solvents are: \texttt{water}, \texttt{acetone}, \texttt{benzene}
-, \texttt{dmso}, \texttt{ethanol}, \texttt{methanol}, \texttt{hexane}, \texttt{toluene}, \texttt{ammonia}, \texttt{chloroform}, \texttt{nitrobenzene}, and \texttt{thf}.
+\item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. Current supported solvents are: \texttt{water}/\texttt{h2o}, \texttt{acetone}, \texttt{benzene}
+, \texttt{dmso}, \texttt{ethanol}, \texttt{methanol}, \texttt{hexane}, \texttt{toluene}, \texttt{ammonia}, \texttt{chloroform}, \texttt{nitrobenzene}, \texttt{aceticacid}, \texttt{acetonitrile}, \texttt{aniline}, \texttt{benzylalcohol}, \texttt{bromoform}, \texttt{butanol}, \texttt{isobutanol}, \texttt{tertbutanol}, \texttt{carbondisulfide}, \texttt{carbontetrachloride}, \texttt{cyclohexane}, \texttt{cyclohexanone}, \texttt{dichlorobenzene}, \texttt{diethylether}, \texttt{dioxane}, \texttt{dmfa}, \texttt{ethylacetate}, \texttt{dichloroethane}, \texttt{ethyleneglycol}, \texttt{formicacid}, \texttt{isopropanol} and \texttt{thf}.
 \item \texttt{scf\_damping}: This specifies the SCF damping to be applied to aid SCF convergence. Available settings are \texttt{default} (default value of \textsc{Turbomole}), \texttt{low}, \texttt{medium}, and \texttt{high}. Note that the default damping values are lower than any of the other settings.
 \item \texttt{scf\_orbitalshift}: Shifts either the energies of unoccupied MOs to higher energies or, in open-shell cases, the energies of closed-shell MOs to lower energies to aid convergence. The default is set to \texttt{0.1}\,hartree.
 \item \texttt{steer\_orbitals}: This specifies whether the orbitals should be perturbed  following a randomized scheme after a converged single point calculation\cite{orbitalperturbation}. By default, this is set to \texttt{false}.
+\item \texttt{point\_charges\_file}: Sets the filename of a \textsc{Turbomole} point charges file (containing the values and coordinates of
+external point charges to be included in the calculation). The point charges file should be formatted such that the first line contains the overall number of point charges to include in the calculation, followed by the coordinates and value of the external point charge in the following format: \texttt{<x> <y> <z> <q>}, each in one line. By default, this setting is set to an empty string, which results
+in no point charges being considered.
 \end{itemize}
 
 \subsection{\textsc{CP2K}}
@@ -557,13 +560,47 @@ By default, it is \texttt{'PBEPBE'}.
 any valid \textsc{Gaussian} basis set string (see the \textsc{Gaussian} manual for a complete list).
 \item \texttt{solvation}: This specifies the solvation model to be used. By default, it is empty. Available settings are \texttt{cpcm}, \texttt{pcm}, \texttt{ipcm}, \texttt{scipcm},
 and \texttt{smd}.
-\item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. You can specify any valid Gaussian solvent name.
-\item \texttt{external\_program\_memory}: The total amount of memory in MB that should be available for GAUSSIAN to use.
+\item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. You can specify any valid \textsc{Gaussian} solvent name.
+\item \texttt{external\_program\_memory}: The total amount of memory in MB that should be available for \textsc{Gaussian} to use.
 By default set to \texttt{1024}.
-\item \texttt{gaussian\_filename\_base}: This specifies the basic filename (prefix) used for all files related to the GAUSSIAN calculations.
+\item \texttt{gaussian\_filename\_base}: This specifies the basic filename (prefix) used for all files related to the \textsc{Gaussian} calculations.
 By default, it is set to ``gaussian\_calc''; therefore, the generated input file will be named ``gaussian\_calc.inp''.
 \item \texttt{scf\_guess} The guess for the SCF. Available options are \texttt{read, harris, hucke, core, only} and \texttt{(only, read)}. Per default, it is set to \texttt{read}, reading in a checkpoint file from a previous calculation is read in, if present.
 \end{itemize}
+
+
+\subsection{\textsc{Serenity}}
+
+In order to use \textsc{Serenity} with \textsc{ReaDuct}, specify \texttt{program: 'Serenity'} in the respective system block and the desired
+calculation method family (e.g., \texttt{'DFT'}) in the \texttt{method\_family} key.
+The method (e.g., \texttt{'PBE'}) can be specified in the system settings. Dispersion correction can be added to this method string, e.g: \texttt{'PBE-D3BJ'}.
+
+Serenity is called via the SCINE Serenity wrapper. Therefore, you have to install this wrapper (refer to the README provided with the wrapper for
+detailed installation instructions).
+
+You can specify the following settings in the settings block:
+\begin{itemize}
+\item \texttt{basis\_set}: This specifies the basis set string. By default, it is \texttt{'6-31GS'}. You can specify
+any valid \textsc{Serenity} basis set string.
+\item \texttt{solvation}: This specifies the solvation model to be used. By default, it is empty. Available settings are \texttt{cpcm} and \texttt{iefpcm}.
+\item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. You can specify any valid \textsc{Serenity} solvent name.
+\item \texttt{show\_serenity\_output}: Turns on or off the text output by \textsc{Serenity}. By default set to \texttt{false}.
+\item \texttt{scf\_initialguess}: The initial guess for creating molecular orbitals. Available options are \texttt{hcore} (take the solutions of the core Hamiltonian, \textit{i.e.}, without electron--electron interactions, \texttt{eht} (use extended H\"uckel theory), \texttt{atom\_dens} (combine atomic densities from a minimal basis), \texttt{atom\_scf} (combine atomic densities from a def2-QZVP basis), \texttt{atom\_scf\_inplace} (create atomic densities on the fly from an atom-wise SCF), and \texttt{sap} (use a superposition of atomic potentials). The default is \texttt{atom\_scf}.
+\item \texttt{basis\_auxJLabel}: Basis set label for the auxiliary basis for Coulomb integrals (RI). By default set to \texttt{RI\_J\_Weigend}.
+\item \texttt{basis\_auxCLabel}: Basis set label for the auxiliary basis for correlation treatments. 
+\item \texttt{basis\_makeSphericalBasis}: Whether to use a spherical basis. By default \texttt{true}. When set to \texttt{false}, a Cartesian basis is used.
+\item \texttt{basis\_integralThreshold}: The threshold for prescreening in integral evaluations. The default values it is calculated as $1\cdot 10^{-8}/(3 M)$, where $M$ is the number of Cartesian basis functions.
+\item \texttt{basis\_basisLibPath}: The path to the basis set files. This value is inferred from the environment variable \texttt{SERENITY\_RESOURCES}.
+\item \texttt{basis\_firstECP}: The nuclear charge number of the first atom to receive effective core potentials. By default set to 37.
+\item \texttt{grid\_gridType}: Procedure how to combine atomic grids. Available options are \texttt{Becke}\cite{Becke1988}, \texttt{SSF}\cite{Stratmann1996}, and \texttt{Voronoi}. The default is \texttt{SSF}.
+\item \texttt{grid\_accuracy}: The accuracy of the integration grid. This can take on values between 1 and 7; by default, it is 5. Larger numbers correspond to a finer, more accurate grid.
+\item \texttt{grid\_smallGridAccuracy}: The accuracy of the smaller integration grid used in temporary steps. This can take on values between 1 and 7; be default, it is 3. Larger numbers correspond to a finer, more accurate grid.
+\item \texttt{scf\_seriesDampingInitialSteps}: The number of initial dampening steps. By default set to 5.
+\item \texttt{pcm\_alpha}: The sharpness parameter for the molecular surface model function for Delley-type surfaces. Has to be at least zero; by default set to 50.
+\item \texttt{pcm\_scaling}: If true, the atomic radii used for the PCM cavity construction are scaled by a factor of 1.2. By default set to false.
+\item \texttt{pcm\_radiiType}: The set of atomic radii to be used in the PCM cavity construction. By default set to \texttt{uff}.
+\end{itemize}
+
 
 \subsection{\textsc{xtb}}
 
@@ -708,6 +745,10 @@ If you specified \texttt{optimizer: 'steepestdescent'} or \texttt{optimizer: 'sd
 and you can also set the following options:
 \begin{itemize}
 \item \texttt{sd\_factor}: The scaling factor to be used in the steepest descent algorithm. By default set to \texttt{0.1}.
+\item \texttt{sd\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{false}.
+\item \texttt{sd\_trust\_radius}: The maximum movement in any cartesian direction by any atom. By default set to \texttt{0.1}.
+\item \texttt{sd\_dynamic\_multiplier}: A factor by which the \texttt{sd\_factor} is multiplied each step. By default set to \texttt{1.0}.
+If it is set to values larger than \texttt{1.0}, \texttt{sd\_use\_trust\_radius} must be set to \texttt{true}.
 \end{itemize}
 
 If you specified \texttt{optimizer: 'newtonraphson'} or \texttt{optimizer: 'nr'}, the default coordinate system is 'cartesianWithoutRotTrans'
@@ -883,6 +924,10 @@ used (see above). By default set to \texttt{0.9}.
 If you specified \texttt{optimizer: 'steepestdescent'} or \texttt{optimizer: 'sd'}, you can also set the following options:
 \begin{itemize}
 \item \texttt{sd\_factor}: The scaling factor to be used in the steepest descent algorithm. By default set to \texttt{2.0}.
+\item \texttt{sd\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{false}.
+\item \texttt{sd\_trust\_radius}: The maximum movement in any cartesian direction by any atom. By default set to \texttt{0.1}.
+\item \texttt{sd\_dynamic\_multiplier}: A factor by which the \texttt{sd\_factor} is multiplied each step. By default set to \texttt{1.0}.
+If it is set to values larger than \texttt{1.0}, \texttt{sd\_use\_trust\_radius} must be set to \texttt{true}.
 \end{itemize}
 
 \subsection{Artificial Force Induced Reaction Calculation}
@@ -965,6 +1010,10 @@ used (see above). By default set to \texttt{0.9}.
 If you specified \texttt{optimizer: 'steepestdescent'} or \texttt{optimizer: 'sd'}, you can also set the following options:
 \begin{itemize}
 \item \texttt{sd\_factor}: The scaling factor to be used in the steepest descent algorithm. By default set to \texttt{0.1}.
+\item \texttt{sd\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{false}.
+\item \texttt{sd\_trust\_radius}: The maximum movement in any cartesian direction by any atom. By default set to \texttt{0.1}.
+\item \texttt{sd\_dynamic\_multiplier}: A factor by which the \texttt{sd\_factor} is multiplied each step. By default set to \texttt{1.0}.
+If it is set to values larger than \texttt{1.0}, \texttt{sd\_use\_trust\_radius} must be set to \texttt{true}.
 \end{itemize}
 
 \subsection{B-Spline Interpolation and Optimization}\label{sec: b-spline}
@@ -1024,6 +1073,10 @@ used (see above). By default set to \texttt{0.9}.
 If you specified \texttt{optimizer: 'steepestdescent'} or \texttt{optimizer: 'sd'}, you can also set the following options:
 \begin{itemize}
 \item \texttt{sd\_factor}: The scaling factor to be used in the steepest descent algorithm. By default set to \texttt{0.1}.
+\item \texttt{sd\_use\_trust\_radius}: Whether to use the trust radius. By default set to \texttt{false}.
+\item \texttt{sd\_trust\_radius}: The maximum movement in any cartesian direction by any atom. By default set to \texttt{0.1}.
+\item \texttt{sd\_dynamic\_multiplier}: A factor by which the \texttt{sd\_factor} is multiplied each step. By default set to \texttt{1.0}.
+If it is set to values larger than \texttt{1.0}, \texttt{sd\_use\_trust\_radius} must be set to \texttt{true}.
 \end{itemize}
 
 \subsection{Newton Trajectory Calculations}
@@ -1062,6 +1115,11 @@ if desired, the following settings can always be set:
 \item \texttt{nt\_total\_force\_norm}: The norm of the force applied onto each of the atoms to be moved along the geometric center of the LHS atoms and the center of the RHS atoms.
 If both sides shall be moved with the applied force, each side is made subject to half of this value.
 By default it is set to \texttt{0.1}.
+\item \texttt{nt\_extraction\_criterion}: Specify the criterion for the extracted guess; available options are:
+\begin{itemize}
+  \item \texttt{highest\_maximum} Pick the highest local maximum along the trajectory (default).
+  \item \texttt{first\_maximum} Pick the first local maximum along the trajectory.
+\end{itemize}
 \item \texttt{nt\_coordinate\_system}: Select the representation of the coordinate system, either
  'internal'~\cite{libirc}, 'cartesianWithoutRotTrans', or 'cartesian'. The default is 'cartesianWithoutRotTrans'.
 Please be aware, that this only affects the SD steps, while the BFGS microcycles will always be performed with true
@@ -1119,6 +1177,12 @@ if desired, the following settings can always be set:
  Note that some atoms may have forces applied that are less than the given value, all forces applied will be scaled
  such that the 'fastest' atom will be receiving at maximum a force with the norm given in this setting.
  By default it is set to \texttt{0.1}.
+\item \texttt{nt\_extraction\_criterion}: Specify the criterion for the extracted guess; available options are:
+\begin{itemize}
+  \item \texttt{last\_maximum\_before\_first\_target} If an NT2 stop criterion is fulfilled in step $n$ of a trajectory, pick the last local maximum in the first $n$ steps of the trajectory; if no such maximum is present, pick the first local maximum after step $n$ of the trajectory. If not NT2 stop criterion is fulfilled, pick the largest local maximum of the entire trajectory (default).
+  \item \texttt{highest\_maximum} Pick the highest local maximum along the trajectory.
+  \item \texttt{first\_maximum} Pick the first local maximum along the trajectory.
+\end{itemize}
 \item \texttt{nt\_coordinate\_system}: Select the representation of the coordinate system, either
  'internal'\cite{libirc}, 'cartesianWithoutRotTrans', or 'cartesian'.
 Please be aware that this only affects the SD steps, while the BFGS micro cycles will always be performed with true
@@ -1177,7 +1241,7 @@ tasks:
 
 \textsc{ReaDuct} provides Python bindings such that all functionality of \textsc{ReaDuct} can be accessed also via the
 Python programming language. In order to build the Python bindings, you need to specify \texttt{-DSCINE\_BUILD\_PYTHON\_BINDINGS=ON}
-when running cmake (see also chapter~\nameref{ch:installation}).
+when running CMake (see also chapter~\nameref{ch:installation}).
 
 In order to use the Python bindings, you need to specify the path to the Python library in the environment variable
 \texttt{PYTHONPATH}, \textit{e.g.}, you have to run the command
@@ -1208,6 +1272,54 @@ structure. As second argument, the structure optimization task accepts a list of
 \textit{i.e.}, the dictionary ``systems'' can contain more systems but these will not be optimized (all other tasks
 work with the same concept). The output system(s) will be automatically added to the systems dictionary.
 
+In addition to the basic execution of tasks, the Python package features extra functionalities.
+As an example, it is possible to attach custom observer functions to optimization algorithms logging/forking additional
+data.
+A valid observer function has the following signature:
+
+\begin{verbatim}
+def observe(cycle_number: int, atoms: utils.AtomCollection, results: utils.Results tag: str):
+    # do something with the data
+\end{verbatim}
+
+An example use case could be the storage of all intermediate structures and energies in a geometry optimization:
+
+\begin{verbatim}
+import scine_utilities as utils
+import scine_readuct as readuct
+
+water = utils.core.load_system_into_calculator('h2o.xyz', 'PM6', program='Sparrow',
+                                          molecular_charge=0, spin_multiplicity=1)
+systems = {
+    'water': water
+}
+
+class Gatherer:
+    """ Collects energies and structures """
+    def __init__(self):
+        self.count = 0
+        self.energies = []
+        self.structures = []
+    def collect(self, cycle_number, atoms, results, tag):
+        self.count += 1
+        self.energies.append(results.energy)
+        self.structures.append(atoms)
+
+observer = Gatherer()
+readuct.run_optimization_task(
+    systems,
+    ['water'],
+    False,
+    [observer.collect],
+    stop_on_error=False
+)
+
+print(f"Gathered {observer.count} energies and structures.")
+print(f"Final energy was: {observer.energies[observer.count-1]} Hartree")
+\end{verbatim}
+
+
+
 A detailed list of all the functions provided by the \textsc{ReaDuct} Python library can be found by running
 \begin{verbatim}
 import scine_readuct
@@ -1215,12 +1327,6 @@ import scine_readuct
 help(scine_readuct)
 \end{verbatim}
 
-
-
-\chapter{Extensions Planned in Future Releases}
-\begin{itemize}
-\item Interfaces to other quantum chemical packages such as \textsc{Serenity}\cite{serenity}
-\end{itemize}
 
 
 \chapter{Important References}

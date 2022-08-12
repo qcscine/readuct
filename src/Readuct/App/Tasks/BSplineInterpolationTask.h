@@ -45,11 +45,17 @@ class BSplineInterpolationTask : public Task {
   }
 
   bool run(std::map<std::string, std::shared_ptr<Core::Calculator>>& systems,
-           Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
+           Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false,
+           std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>
+               observers = {}) const final {
     if (_input.size() != 2) {
       throw std::logic_error("The B-Spline task needs two input systems.");
     }
     warningIfMultipleOutputsGiven();
+    if (observers.size() > 0) {
+      throw std::logic_error(
+          "BSplineInterpolationTask does not feature algorithm accepting observers, yet one was given");
+    }
 
     // Read and set user-specified settings
     alignStructuresBeforeInterpolation_ = taskSettings.extract("align_structures", alignStructuresBeforeInterpolation_);

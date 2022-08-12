@@ -40,7 +40,9 @@ class NtOptimization2Task : public Task {
     return "NT2 Optimization";
   }
 
-  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false) const final {
+  bool run(SystemsMap& systems, Utils::UniversalSettings::ValueCollection taskSettings, bool testRunOnly = false,
+           std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>
+               observers = {}) const final {
     warningIfMultipleInputsGiven();
     warningIfMultipleOutputsGiven();
 
@@ -101,6 +103,16 @@ class NtOptimization2Task : public Task {
     };
     optimizer->addObserver(func);
     auto cout = _logger->output;
+
+    // Add custom observers
+    auto customObservers = [&calc, &observers](const int& cycle, const double& /*energy*/, const Eigen::VectorXd& /*params*/) {
+      for (auto& observer : observers) {
+        auto atoms = calc->getStructure();
+        Utils::Results& results = calc->results();
+        observer(cycle, *atoms, results, "nt2_scan");
+      }
+    };
+    optimizer->addObserver(customObservers);
 
     // Run optimization
     auto structure = calc->getStructure();
