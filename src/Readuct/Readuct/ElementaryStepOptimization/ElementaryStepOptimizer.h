@@ -130,9 +130,12 @@ class ElementaryStepOptimizer : public ElementaryStepOptimizerBase {
     // Preparations
     EnergiesAndGradientsAlongSpline valuesAlongSpline;
     const auto& elements = _profile.getMolecularSpline().getElements();
-    Utils::PositionCollection positions = Utils::PositionCollection::Zero(elements.size(), 3); // dummy positions
-    Utils::AtomCollection atoms(elements, positions);
-    _calculator.setStructure(atoms);
+    const auto structure = _calculator.getStructure();
+    if (!structure || structure->getElements() != elements) {
+      Utils::PositionCollection positions = Utils::PositionCollection::Zero(elements.size(), 3); // dummy positions
+      Utils::AtomCollection atoms(elements, positions);
+      _calculator.setStructure(atoms);
+    }
 
     // Get initial variable values and map to format required by update function
     auto& spline = _profile.getMolecularSpline().getBSpline();

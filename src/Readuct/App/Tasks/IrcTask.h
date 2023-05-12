@@ -210,7 +210,7 @@ class IrcTask : public Task {
     if (!forwardAborted) {
       // Print/Store results
       if (_output.size() > 1) {
-        systems[_output[0]] = std::shared_ptr<Core::Calculator>(calc->clone().release());
+        systems[_output[0]] = calc->clone();
         boost::filesystem::path xyzfile(_output[0] + ".xyz");
         std::ofstream xyz((dirF / xyzfile).string(), std::ofstream::out);
         Writer::write(xyz, *(calc->getStructure()));
@@ -303,7 +303,7 @@ class IrcTask : public Task {
 
     // Print/Store results
     if (_output.size() > 1) {
-      systems[_output[1]] = std::shared_ptr<Core::Calculator>(calc->clone().release());
+      systems[_output[1]] = calc->clone();
       boost::filesystem::path xyzfile(_output[1] + ".xyz");
       std::ofstream xyz((dirB / xyzfile).string(), std::ofstream::out);
       Writer::write(xyz, *(calc->getStructure()));

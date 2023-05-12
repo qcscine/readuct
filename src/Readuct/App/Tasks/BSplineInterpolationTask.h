@@ -8,6 +8,7 @@
 #define READUCT_BSPLINEINTERPOLATIONTASK_H_
 
 #include "../../Readuct/ElementaryStepOptimization/ElementaryStepOptimizer.h"
+#include "../../Readuct/ElementaryStepOptimization/ProfileEnergies.h"
 #include "../../Readuct/ElementaryStepOptimization/ReactionProfile.h"
 #include "Tasks/Task.h"
 #include <Utils/CalculatorBasics/Results.h>
@@ -56,7 +57,6 @@ class BSplineInterpolationTask : public Task {
       throw std::logic_error(
           "BSplineInterpolationTask does not feature algorithm accepting observers, yet one was given");
     }
-
     // Read and set user-specified settings
     alignStructuresBeforeInterpolation_ = taskSettings.extract("align_structures", alignStructuresBeforeInterpolation_);
     numberStructuresForMolecularTrajectory_ = taskSettings.extract("num_structures", numberStructuresForMolecularTrajectory_);
@@ -145,6 +145,10 @@ class BSplineInterpolationTask : public Task {
       writeTrajectory(optimizedTrajectory, (dir / xyzfile2).string());
       std::string info = (converged) ? "Complete" : "Stopped";
       cout << "  Optimization " + info + "\n\n";
+
+      auto reactionProfileTrajectory = this->reconstructProfile(optimizedProfile);
+      boost::filesystem::path xyzfile3(outputSystem + "_profile.xyz");
+      writeTrajectory(reactionProfileTrajectory, (dir / xyzfile3).string());
     }
 
     std::vector<Utils::AtomCollection> tsGuess;
@@ -413,6 +417,26 @@ class BSplineInterpolationTask : public Task {
           Eigen::Map<const Utils::PositionCollection>(spline.evaluate(u).data(), elements.size(), 3);
       t.push_back(std::move(pc));
     }
+    return t;
+  }
+
+  static Utils::MolecularTrajectory reconstructProfile(ElementaryStepOptimization::ReactionProfile profile) {
+    auto elements = profile.getMolecularSpline().getElements();
+    auto spline = profile.getMolecularSpline().getBSpline();
+    const auto& profileEnergies = profile.getProfileEnergies();
+    Utils::MolecularTrajectory t;
+    t.setElementTypes(elements);
+    std::vector<double> energies;
+    for (int i = 0; i < profileEnergies.size(); ++i) {
+      const auto pair = profileEnergies.getPair(i);
+      double u = pair.first;
+      double e = pair.second;
+      Utils::PositionCollection pc =
+          Eigen::Map<const Utils::PositionCollection>(spline.evaluate(u).data(), elements.size(), 3);
+      t.push_back(std::move(pc));
+      energies.push_back(e);
+    }
+    t.setEnergies(energies);
     return t;
   }
 

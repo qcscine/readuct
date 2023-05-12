@@ -70,6 +70,7 @@ class HessianTask : public Task {
     Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
     // Check system size
+    // ToDo: Remove as soon as all calculators are able to handle single atom systems.
     if (calc->getStructure()->size() == 1) {
       throw std::runtime_error("Cannot perform Hessian task for monoatomic systems.");
     }
@@ -132,8 +133,10 @@ class HessianTask : public Task {
     // Print thermochemistry results
     auto thermo = calc->results().get<Utils::Property::Thermochemistry>();
     double temp = calc->settings().getDouble("temperature");
+    double pressure = calc->settings().getDouble("pressure");
     cout << "  Thermochemical Data:\n";
     cout.printf("  %35s %+14.9f K\n", "Temperature (T):", temp);
+    cout.printf("  %35s %+14.6f Pa\n", "Pressure (P):", pressure);
     cout.printf("  %35s %14d\n", "Molecular symmetry number:", thermo.overall.symmetryNumber);
     cout.printf("  %35s %+14.9f E_h\n", "Zero Point Vibrational Energy:", thermo.overall.zeroPointVibrationalEnergy);
     cout.printf("  %35s %+14.9f E_h/K\n", "Entropy (S):", thermo.overall.entropy);

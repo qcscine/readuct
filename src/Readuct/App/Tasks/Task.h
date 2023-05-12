@@ -35,7 +35,7 @@ class Task {
     if (findIter == systems.end()) {
       throw std::runtime_error("System name '" + name + "' is missing in " + taskName);
     }
-    return std::shared_ptr<Core::Calculator>(findIter->second->clone().release());
+    return findIter->second->clone();
   }
 
   /**

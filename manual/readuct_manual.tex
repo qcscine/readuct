@@ -15,8 +15,8 @@
 
 %%
 % Book metadata
-\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 4.1.0}}
-\author[The SCINE ReaDuct Developers]{The SCINE ReaDuct Developers: \newline \noindent Christoph Brunken, Katja-Sophia Csizi, Stephanie Grimmel, Stefan Gugler, Jan-Grimo Sobez, Miguel Steiner, Paul T\"urtscher, Jan Unsleber, Alain C. Vaucher, Thomas Weymuth, and Markus Reiher}
+\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 5.0.0}}
+\author[The SCINE ReaDuct Developers]{The SCINE ReaDuct Developers: \newline \noindent Moritz Bensberg, Christoph Brunken, Katja-Sophia Csizi, Stephanie Grimmel, Stefan Gugler, Jan-Grimo Sobez, Miguel Steiner, Paul T\"urtscher, Jan Unsleber, Alain C. Vaucher, Thomas Weymuth, and Markus Reiher}
 \publisher{ETH Z\"urich}
 
 %%
@@ -403,6 +403,7 @@ A form of dispersion correction must be specified within the method following a 
 In order to use \textsc{ORCA} with \textsc{ReaDuct}, specify \texttt{program: 'ORCA'} in the respective system block and the desired
 calculation method family (e.g., \texttt{'DFT'}) in the \texttt{method\_family} key.
 The method (e.g., \texttt{'PBE'}) can be specified in the system settings.
+You can carry out a Hartree--Fock calculation by specifying both the \texttt{method\_family} and \texttt{method} to be 'HF'.
 
 Implicit solvation can be activated specifying the \texttt{solvent} and \texttt{solvation} key.
 To model implicit solvation, the Conductor-like Polarizable Continuum Model\cite{cpcm} (C-PCM) or the Solvation Model based on Density\cite{smd} (SMD) each with the default solvent dependent settings implemented in \textsc{ORCA} can be used.
@@ -432,6 +433,10 @@ in no point charges considered.
 the calculation fails. By default, this is set to \texttt{true}.
 \item \texttt{hessian\_calculation\_type}: The way to calculate a Hessian, i.e., either ``analytical`` or ``numerical``. By default, it is set to ``analytical``, unless it is already specified in our code that \textsc{ORCA} does not provide an analytical Hessian for the specified method. However, this list is not complete and may vary from version to version.
 \item \texttt{special\_option}: A possibility to add an input that is not covered by our settings, only recommended for experts.
+\item \texttt{perform\_broken\_symmetry\_calculation}: Whether a broken-symmetry DFT calculation should be performed. By default, this is set to \texttt{false}. Note that there is no guarantee that the calculation converges to the desired broken-symmetry solution. This needs to be checked \textit{a posteriori} by inspection of the atomic spin populations or the spin density or analyzing the unrestricted corresponding orbitals.
+\item \texttt{initial\_spin\_multiplicity}: The high-spin multiplicity for which the SCF should be converged before flipping spin-density at one or multiple local sites.
+\item \texttt{spin\_flip\_sites}: The atom indices of the sites at which local spin density should be flipped after converging to the high-spin solution. By default, this is set to an empty list, \textit{i.e.}, needs to be specified explicitly.
+\item \texttt{calculate\_moessbauer}: Whether to calculate the $\mathrm{^{57}Fe}$ M\"ossbauer parameters. The obtained parameters comprise the quadrupole splitting $\Delta E_Q$, the asymmetry parameter $\eta$, and the electron density $\rho_0$ for each Fe nucleus.
 \end{itemize}
 
 \subsection{\textsc{Turbomole}}
@@ -439,6 +444,7 @@ the calculation fails. By default, this is set to \texttt{true}.
 In order to use \textsc{Turbomole} with \textsc{ReaDuct}, specify \texttt{program: 'TURBOMOLE'} in the respective system block and the desired
 calculation method family (e.g., \texttt{'DFT'}) in the \texttt{method\_family} key.
 The method (e.g., \texttt{'PBE'}) can be specified in the system settings.
+You can carry out a Hartree--Fock calculation by specifying both the \texttt{method\_family} and \texttt{method} to be 'HF'.
 
 Implicit solvation can be activated specifying the \texttt{solvent} key.
 To model implicit solvation, the Conductor-like Screening Model \cite{cosmo} (COSMO) with the default solvent dependent settings implemented in Turbomole is used.
@@ -454,13 +460,15 @@ Note that the name of the method should match the string in a typical \textsc{Tu
 \item \texttt{basis\_set}: This specifies the basis set string. By default, Turbomole assigns the \texttt{'def-SV(P)'} basis set. You can specify any valid \textsc{Turbomole} basis set string from the Karlsruhe basis sets\cite{karlsruheBasisSets}, Dunning's correlation-consistent basis sets\cite{dunningBasisSets} or Pople-style basis sets\cite{popleBasisSets} (see the \textsc{Turbomole} manual for a complete list).
 \item \texttt{solvation}: This specifies the implicit solvation model. By default, it is empty. Currently, you can specify \texttt{cosmo}.
 \item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. Current supported solvents are: \texttt{water}/\texttt{h2o}, \texttt{acetone}, \texttt{benzene}
-, \texttt{dmso}, \texttt{ethanol}, \texttt{methanol}, \texttt{hexane}, \texttt{toluene}, \texttt{ammonia}, \texttt{chloroform}, \texttt{nitrobenzene}, \texttt{aceticacid}, \texttt{acetonitrile}, \texttt{aniline}, \texttt{benzylalcohol}, \texttt{bromoform}, \texttt{butanol}, \texttt{isobutanol}, \texttt{tertbutanol}, \texttt{carbondisulfide}, \texttt{carbontetrachloride}, \texttt{cyclohexane}, \texttt{cyclohexanone}, \texttt{dichlorobenzene}, \texttt{diethylether}, \texttt{dioxane}, \texttt{dmfa}, \texttt{ethylacetate}, \texttt{dichloroethane}, \texttt{ethyleneglycol}, \texttt{formicacid}, \texttt{isopropanol} and \texttt{thf}.
-\item \texttt{scf\_damping}: This specifies the SCF damping to be applied to aid SCF convergence. Available settings are \texttt{default} (default value of \textsc{Turbomole}), \texttt{low}, \texttt{medium}, and \texttt{high}. Note that the default damping values are lower than any of the other settings.
+, \texttt{dmso}, \texttt{ethanol}, \texttt{methanol}, \texttt{hexane}, \texttt{toluene}, \texttt{ammonia}, \texttt{chloroform}, \texttt{nitrobenzene}, \texttt{aceticacid}, \texttt{acetonitrile}, \texttt{aniline}, \texttt{benzylalcohol}, \texttt{bromoform}, \texttt{butanol}, \texttt{isobutanol}, \texttt{tertbutanol}, \texttt{carbondisulfide}, \texttt{carbontetrachloride}, \texttt{cyclohexane}, \texttt{cyclohexanone}, \texttt{dichlorobenzene}, \texttt{diethylether}, \texttt{dioxane}, \texttt{dmfa}, \texttt{ethylacetate}, \texttt{dichloroethane}, \texttt{ethyleneglycol}, \texttt{formicacid}, \texttt{isopropanol} and \texttt{thf}. A custom solvent may be specified as \texttt{user\_defined(epsilon, probe-radius)}, where probe-radius denotes the radius of the solvent sphere used to construct the molecular cavity in angstrom and epsilon is the solvent's dielectric constant.
+\item \texttt{scf\_damping}: This specifies whether SCF damping should be applied to aid SCF convergence. Available settings are \texttt{true} and \texttt{false}. By default set to \texttt{false}.
+\item \texttt{scf\_damping\_value}: The exact vlue to be used for the SCF damping. The default value is 0.5.
 \item \texttt{scf\_orbitalshift}: Shifts either the energies of unoccupied MOs to higher energies or, in open-shell cases, the energies of closed-shell MOs to lower energies to aid convergence. The default is set to \texttt{0.1}\,hartree.
 \item \texttt{steer\_orbitals}: This specifies whether the orbitals should be perturbed  following a randomized scheme after a converged single point calculation\cite{orbitalperturbation}. By default, this is set to \texttt{false}.
 \item \texttt{point\_charges\_file}: Sets the filename of a \textsc{Turbomole} point charges file (containing the values and coordinates of
 external point charges to be included in the calculation). The point charges file should be formatted such that the first line contains the overall number of point charges to include in the calculation, followed by the coordinates and value of the external point charge in the following format: \texttt{<x> <y> <z> <q>}, each in one line. By default, this setting is set to an empty string, which results
 in no point charges being considered.
+\item \texttt{enable\_ri}: Enables the Resolution of the Identity (RI) approximation. The default is set to \texttt{true}. 
 \end{itemize}
 
 \subsection{\textsc{CP2K}}
@@ -545,8 +553,7 @@ calculation method family (e.g., \texttt{'DFT'}) in the \texttt{method\_family} 
 The method (e.g., \texttt{'PBEPBE'}) can be specified in the system settings. Dispersion correction can be added to this method string, e.g: \texttt{'PBE-D3BJ'}. Current supported dispersion corrections are D2, D3\cite{grimmeD3} and D3BJ.\cite{bjDamping}
 
 Implicit solvation can be activated specifying the \texttt{solvent} key.
-To model implicit solvation, the Conductor-like Polarizable Continuum Model\cite{cpcm} (C-PCM) with the default solvent dependent settings implemented in Gaussian is used.
-These solvent dependent settings cannot be changed.
+To model implicit solvation, per default the Conductor-like Polarizable Continuum Model\cite{cpcm} (C-PCM) with the default solvent dependent settings implemented in Gaussian is used.
 
 The path to the \textsc{Gaussian} binary must be set via the environment variable \texttt{GAUSSIAN\_BINARY\_PATH}.
 
@@ -558,7 +565,7 @@ Note that the name of the method should match the string used in a typical \text
 By default, it is \texttt{'PBEPBE'}.
 \item \texttt{basis\_set}: This specifies the basis set string. By default, it is \texttt{'def2SVP'}. You can specify
 any valid \textsc{Gaussian} basis set string (see the \textsc{Gaussian} manual for a complete list).
-\item \texttt{solvation}: This specifies the solvation model to be used. By default, it is empty. Available settings are \texttt{cpcm}, \texttt{pcm}, \texttt{ipcm}, \texttt{scipcm},
+\item \texttt{solvation}: This specifies the solvation model to be used. By default, it is empty. Available settings are \texttt{cpcm}, \texttt{pcm}, \texttt{dipole}, \texttt{ipcm}, \texttt{scipcm},
 and \texttt{smd}.
 \item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. You can specify any valid \textsc{Gaussian} solvent name.
 \item \texttt{external\_program\_memory}: The total amount of memory in MB that should be available for \textsc{Gaussian} to use.

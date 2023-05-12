@@ -82,7 +82,6 @@ class SinglePointTask : public Task {
     // Note: _input is guaranteed not to be empty by Task constructor
     auto calc = copyCalculator(systems, _input.front(), name());
     Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
-
     // Check for available properties
     bool chargesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::AtomicCharges);
     bool gradientsAvailable = calc->possibleProperties().containsSubSet(Utils::Property::Gradients);
@@ -141,7 +140,13 @@ class SinglePointTask : public Task {
     }
 
     if (spinPropensityCheck != 0) {
-      calc = Utils::CalculationRoutines::spinPropensity(*calc, *_logger, spinPropensityCheck);
+      if (!calc->settings().valueExists(Utils::SettingsNames::spinMultiplicity)) {
+        _logger->warning << "Warning: " << calc->name()
+                         << " does not allow multiplicity changes, skipping spin propensity check" << Core::Log::endl;
+      }
+      else {
+        calc = Utils::CalculationRoutines::spinPropensity(*calc, *_logger, spinPropensityCheck);
+      }
       // some calculators are lazy and don't copy properties, hence we recalculate if necessary
       if (!calc->getRequiredProperties().containsSubSet(requiredProperties)) {
         try {

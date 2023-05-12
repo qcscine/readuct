@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Release 5.0.0
+-------------
+
+- Avoid spin propensity calculations for calculators without spin multiplicity setting
+- Write the trajectory with the trajectory with the structures and energies optimized during the B-spline
+  optimization to file (BSpline Task)
+
 Release 4.1.0
 -------------
 

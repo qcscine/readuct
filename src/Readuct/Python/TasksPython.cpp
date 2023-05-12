@@ -16,6 +16,7 @@
 #include "Tasks/Task.h"
 #include "Tasks/TsOptimizationTask.h"
 #include <Core/Interfaces/Calculator.h>
+#include <Python.h>
 #include <pybind11/eigen.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
@@ -30,7 +31,7 @@ using SystemsMap = std::map<std::string, std::shared_ptr<Core::Calculator>>;
 
 template<class TaskType>
 std::pair<SystemsMap, bool>
-run(SystemsMap systems, std::vector<std::string> inputNames, bool testRunOnly,
+run(pybind11::dict& systems, std::vector<std::string> inputNames, bool testRunOnly,
     std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>> observers,
     const pybind11::kwargs& kwargs) {
   Utils::UniversalSettings::ValueCollection settingValues;
@@ -95,10 +96,35 @@ run(SystemsMap systems, std::vector<std::string> inputNames, bool testRunOnly,
   }
 
   // Run the task
-  TaskType task(std::move(inputNames), std::move(output), std::move(logger));
-  const bool success = task.run(systems, settingValues, testRunOnly, observers);
+  TaskType task(inputNames, std::move(output), std::move(logger));
 
-  return {systems, success};
+  // we need to make sure that we do not cast a pybind11::none to a shared_ptr<Core::Calculator>,
+  // which would segfault, but we want to return the systems map with still the None values.
+  auto pybindNone = pybind11::none();
+  std::vector<std::string> noneKeys;
+
+  SystemsMap systemsMap;
+  for (auto& item : systems) {
+    std::string key = item.first.cast<std::string>();
+    if (item.second.is(pybindNone)) {
+      if (std::find(inputNames.begin(), inputNames.end(), key) != inputNames.end()) {
+        throw std::runtime_error("The system '" + key + "' is 'None' in the systems map!");
+      }
+      noneKeys.push_back(key);
+      continue;
+    }
+    auto cls = item.second.cast<std::shared_ptr<Core::Calculator>>();
+    auto sptr = cls->shared_from_this();
+    systemsMap.emplace(key, sptr);
+  }
+  const bool success = task.run(systemsMap, settingValues, testRunOnly, observers);
+
+  // add the None values back to the systems map
+  for (const auto& key : noneKeys) {
+    systemsMap.emplace(key, nullptr);
+  }
+
+  return {systemsMap, success};
 }
 
 } // namespace

@@ -123,6 +123,10 @@ class NtOptimizationTask : public Task {
     catch (...) {
       trajectory.close();
       if (stopOnError) {
+        boost::filesystem::path failedPath(outputSystem + ".nt.failed.xyz");
+        std::ofstream failedFile((dir / failedPath).string(), std::ofstream::out);
+        Writer::write(failedFile, *structure);
+        failedFile.close();
         throw;
       }
       // check if thrown exception corresponds to no actual calculation failures but simply no guess found
@@ -130,6 +134,10 @@ class NtOptimizationTask : public Task {
       std::string noGuess = "No transition state guess was found in Newton Trajectory scan";
       size_t found = boost::current_exception_diagnostic_information().find(noGuess);
       if (found == std::string::npos) { // did not find harmless exception -> throw
+        boost::filesystem::path failedPath(outputSystem + ".nt.failed.xyz");
+        std::ofstream failedFile((dir / failedPath).string(), std::ofstream::out);
+        Writer::write(failedFile, *structure);
+        failedFile.close();
         throw;
       }
       cout << Core::Log::endl << "    No TS guess found in NT1 scan." << Core::Log::endl << Core::Log::endl;

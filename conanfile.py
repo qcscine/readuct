@@ -3,7 +3,7 @@ from dev.conan.base import ScineConan
 
 class ScineReaductConan(ScineConan):
     name = "scine_readuct"
-    version = "4.1.0"
+    version = "5.0.0"
     url = "https://github.com/qcscine/readuct"
     description = """
 SCINE ReaDuct is a command-line tool that allows to carry out:
@@ -38,7 +38,7 @@ XTB, CP2K, Gaussian, ORCA, Serenity, and Turbomole are supported as backend prog
         "dev/cmake/*", "src/*", "CMakeLists.txt", "README.rst",
         "LICENSE.txt", "dev/conan/hook.cmake", "dev/conan/glue/*"
     ]
-    requires = ["scine_utilities/6.0.0",
+    requires = ["scine_utilities/8.0.0",
                 "boost/[>1.65.0]",
                 "yaml-cpp/0.6.3"]
     cmake_name = "Readuct"
@@ -55,6 +55,6 @@ XTB, CP2K, Gaussian, ORCA, Serenity, and Turbomole are supported as backend prog
 
     def build_requirements(self):
         if self.options.tests:
-            self.build_requires("scine_sparrow/3.1.0")
+            self.build_requires("scine_sparrow/4.0.0")
 
         super().build_requirements()
