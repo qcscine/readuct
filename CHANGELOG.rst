@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Release 5.1.0
+-------------
+
+- Enable QM/MM methods for all tasks
+- Improve support for compilation on Windows (MSVC)
+- Add Python binding for reading YAML input files
+- Update address in license
+
 Release 5.0.0
 -------------
 

@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #ifndef READUCT_BSPLINEINTERPOLATIONTASK_H_
@@ -531,7 +531,7 @@ class BSplineInterpolationTask : public Task {
   mutable int numberStructuresForMolecularTrajectory_ = 10;
   mutable bool optimize_ = true;
   mutable std::string optimizer_ = "lbfgs";
-  mutable bool extractTsGuess_ = false;
+  mutable bool extractTsGuess_ = true;
   mutable bool extractTsGuessNeighbours_ = false;
   mutable std::string tangentFileName_;
   mutable double coordinateThresholdForMaximumExtraction_ = 1e-3;

@@ -1,5 +1,6 @@
 set(READUCT_APP_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/App/main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/io.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/Task.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/GeometryOptimizationTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/TaskFactory.h
@@ -46,9 +47,11 @@ set(READUCT_ELEMENTARY_STEP_OPTIMIZATION_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/EnergiesAndGradientsAlongSpline.h
   ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/BSplineProfileCalculator.h
   ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/BSplineProfileCalculator.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Readuct/ElementaryStepOptimization/MSVCCompatibility.h
 )
 set(READUCT_PYTHON_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/Python/PythonModule.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Python/IoPython.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/Python/TasksPython.cpp
 )
 set(READUCT_TEST_FILES

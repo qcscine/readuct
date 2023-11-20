@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #ifndef READUCT_SINGLEPOINTTASK_H_
@@ -81,6 +81,7 @@ class SinglePointTask : public Task {
 
     // Note: _input is guaranteed not to be empty by Task constructor
     auto calc = copyCalculator(systems, _input.front(), name());
+    const auto previousResults = calc->results();
     Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
     // Check for available properties
     bool chargesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::AtomicCharges);
@@ -136,6 +137,7 @@ class SinglePointTask : public Task {
       _logger->error
           << "  " + name() + " was not successful with error:\n  " + boost::current_exception_diagnostic_information()
           << Core::Log::endl;
+      calc->results() = previousResults + calc->results();
       return false;
     }
 
@@ -163,11 +165,13 @@ class SinglePointTask : public Task {
           _logger->error
               << "  " + name() + " was not successful with error:\n  " + boost::current_exception_diagnostic_information()
               << Core::Log::endl;
+          calc->results() = previousResults + calc->results();
           return false;
         }
       }
     }
 
+    calc->results() = previousResults + calc->results();
     // Store result
     if (!_output.empty()) {
       systems[_output[0]] = calc;

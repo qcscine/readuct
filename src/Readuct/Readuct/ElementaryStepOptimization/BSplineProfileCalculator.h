@@ -1,13 +1,14 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
 #ifndef READUCT_ELEMENTARYSTEPOPTIMIZATION_BSPLINEPROFILECALCULATOR_H
 #define READUCT_ELEMENTARYSTEPOPTIMIZATION_BSPLINEPROFILECALCULATOR_H
 
+#include "MSVCCompatibility.h"
 #include <Utils/Typenames.h>
 #include <Eigen/Core>
 #include <vector>
@@ -33,7 +34,7 @@ namespace ElementaryStepOptimization {
 /*!
  * This class calculates the energies and forces for points along a bspline.
  */
-class BSplineProfileCalculator {
+class SCINE_DLLEXPORT BSplineProfileCalculator {
  public:
   explicit BSplineProfileCalculator(Core::Calculator& calculator);
 

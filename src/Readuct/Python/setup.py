@@ -1,5 +1,5 @@
 __copyright__ = """This code is licensed under the 3-clause BSD license.
-Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.
+Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.
 See LICENSE.txt for details.
 """
 
@@ -21,7 +21,7 @@ with open("README.rst", "r") as fh:
 setuptools.setup(
     name="scine_readuct",
     version="@Readuct_VERSION@",
-    author="ETH Zurich, Laboratory of Physical Chemistry, Reiher Group",
+    author="ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group",
     author_email="scine@phys.chem.ethz.ch",
     description="Open source quantum chemistry library",
     long_description=long_description,

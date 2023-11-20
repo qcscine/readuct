@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
@@ -23,7 +23,7 @@ namespace CostBasedOptimization {
  * Cost calculator for elasticity / tension.
  * Equivalent to the squared norm of the spline derivative at a given point.
  */
-class ElasticPath : public IntegratingCostCalculator {
+class SCINE_DLLEXPORT ElasticPath : public IntegratingCostCalculator {
   std::unique_ptr<ReactionPathCostCalculator> cloneImpl() const override;
   bool energiesRequiredImpl() const override;
   Utils::AutomaticDifferentiation::FirstND calculateCostContribution(const Utils::BSplines::BSpline& spline, double u,

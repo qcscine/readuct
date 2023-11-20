@@ -1,13 +1,14 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
 #ifndef READUCT_ELEMENTARYSTEPOPTIMIZATION_COSTCALCULATORS_REACTIONPATHCOSTCALCULATOR_H
 #define READUCT_ELEMENTARYSTEPOPTIMIZATION_COSTCALCULATORS_REACTIONPATHCOSTCALCULATOR_H
 
+#include "../MSVCCompatibility.h"
 #include <Eigen/Core>
 #include <memory>
 
@@ -35,7 +36,7 @@ namespace CostBasedOptimization {
  *
  * For more information, see the Ph.D. thesis of Alain Vaucher, DOI 10.3929/ethz-b-000265855.
  */
-class ReactionPathCostCalculator {
+class SCINE_DLLEXPORT ReactionPathCostCalculator {
  public:
   std::unique_ptr<ReactionPathCostCalculator> clone() const;
 

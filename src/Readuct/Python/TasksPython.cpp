@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #include "Tasks/AfirOptimizationTask.h"
@@ -21,7 +21,6 @@
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <iostream>
 
 using namespace Scine;
 
@@ -95,7 +94,7 @@ run(pybind11::dict& systems, std::vector<std::string> inputNames, bool testRunOn
     }
   }
 
-  // Run the task
+  // Construct task
   TaskType task(inputNames, std::move(output), std::move(logger));
 
   // we need to make sure that we do not cast a pybind11::none to a shared_ptr<Core::Calculator>,
@@ -117,7 +116,34 @@ run(pybind11::dict& systems, std::vector<std::string> inputNames, bool testRunOn
     auto sptr = cls->shared_from_this();
     systemsMap.emplace(key, sptr);
   }
-  const bool success = task.run(systemsMap, settingValues, testRunOnly, observers);
+  // check if all input systems are present
+  for (const auto& name : inputNames) {
+    if (systemsMap.find(name) == systemsMap.end()) {
+      throw std::runtime_error("The system '" + name + "' is not present in the systems map!");
+    }
+  }
+
+  // Run the task without GIL if possible
+  bool canReleaseGIL = std::all_of(inputNames.begin(), inputNames.end(),
+                                   [&systemsMap](const auto& name) { return systemsMap[name]->allowsPythonGILRelease(); }) &&
+                       observers.empty();
+  if (canReleaseGIL) {
+    pybind11::gil_scoped_release release;
+  }
+  bool success = false;
+  try {
+    // run the task
+    success = task.run(systemsMap, settingValues, testRunOnly, observers);
+    if (canReleaseGIL) {
+      pybind11::gil_scoped_acquire acquire;
+    }
+  }
+  catch (...) {
+    if (canReleaseGIL) {
+      pybind11::gil_scoped_acquire acquire;
+    }
+    throw;
+  }
 
   // add the None values back to the systems map
   for (const auto& key : noneKeys) {

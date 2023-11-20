@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
@@ -30,7 +30,7 @@ class ProfileEnergies;
  * performed along an evolving BSpline, which permits optimization by saving the electronic densities along the path.
  * TODO: Allow for non-equidistant u values -> remove deltaU etc.
  */
-class RecurringProfileCalculator {
+class SCINE_DLLEXPORT RecurringProfileCalculator {
  public:
   explicit RecurringProfileCalculator(Core::Calculator& calculator, int numberEquidistantPoints);
 

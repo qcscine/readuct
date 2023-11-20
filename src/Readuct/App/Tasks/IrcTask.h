@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #ifndef READUCT_IRCTASK_H_
@@ -112,13 +112,38 @@ class IrcTask : public Task {
     }
 
     // Get/find mode
-    if (!calc->results().has<Utils::Property::Hessian>()) {
-      calc->setRequiredProperties(Utils::Property::Hessian);
-      calc->calculate("Hessian Calculation");
+    // handle Hessian
+    auto propertyToGet = Utils::Property::Hessian;
+    if (calc->possibleProperties().containsSubSet(Utils::Property::Hessian)) {
+      propertyToGet = Utils::Property::Hessian;
     }
-    auto hessian = calc->results().get<Utils::Property::Hessian>();
+    else if (calc->possibleProperties().containsSubSet(Utils::Property::PartialHessian)) {
+      propertyToGet = Utils::Property::PartialHessian;
+    }
+    else {
+      throw std::runtime_error("The calculator does not provide a Hessian or a partial Hessian!");
+    }
+    calc->setRequiredProperties(propertyToGet);
+    calc->calculate("Hessian Calculation");
+    // construct normal modes
+    Utils::NormalModesContainer modes;
     auto system = calc->getStructure();
-    auto modes = Utils::NormalModeAnalysis::calculateNormalModes(hessian, system->getElements(), system->getPositions());
+    if (propertyToGet == Utils::Property::Hessian) {
+      auto hessian = calc->results().get<Utils::Property::Hessian>();
+      modes = Utils::NormalModeAnalysis::calculateNormalModes(hessian, system->getElements(), system->getPositions());
+    }
+    else if (propertyToGet == Utils::Property::PartialHessian) {
+      auto hessian = calc->results().get<Utils::Property::PartialHessian>();
+      if (mode >= hessian.getNumberOfAtoms()) {
+        throw std::runtime_error("The chosen normal mode number is larger than the number of atoms the partial "
+                                 "Hessian was constructed with!");
+      }
+      modes = Utils::NormalModeAnalysis::calculateNormalModes(hessian, system->getElements(), system->getPositions());
+    }
+    else {
+      throw std::runtime_error("Have not implemented normal mode analysis for the property " +
+                               std::string(Utils::propertyTypeName(propertyToGet)));
+    }
     if (mode < 0 || mode > modes.size() - 1) {
       throw std::runtime_error(
           "The chosen normal mode number is smaller than 0 or larger than the number of modes present!");
@@ -131,7 +156,6 @@ class IrcTask : public Task {
      *========================*/
     auto cout = _logger->output;
     cout << "\n    IRC Optimization: Forward\n\n";
-    std::shared_ptr<Scine::Core::Calculator> forwardCalc = std::move(calc->clone());
     // Add observer
     double oldEnergy = 0.0;
     Eigen::VectorXd oldParams;

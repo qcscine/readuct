@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #ifndef READUCT_GEOMETRYOPTIMIZATIONTASK_H_
@@ -13,6 +13,7 @@
 #include <Utils/GeometryOptimization/CoordinateSystem.h>
 #include <Utils/GeometryOptimization/GeometryOptimization.h>
 #include <Utils/GeometryOptimization/GeometryOptimizer.h>
+#include <Utils/GeometryOptimization/QmmmGeometryOptimizer.h>
 #include <Utils/GeometryOptimization/UnitCellGeometryOptimizer.h>
 #include <Utils/IO/ChemicalFileFormats/XyzStreamHandler.h>
 #include <Utils/Optimizer/GradientBased/Bfgs.h>
@@ -52,18 +53,29 @@ class GeometryOptimizationTask : public Task {
     warningIfMultipleInputsGiven();
     warningIfMultipleOutputsGiven();
     bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
+    bool isQmmm = false;
     // Get/Copy Calculator
     std::shared_ptr<Core::Calculator> calc;
     if (!testRunOnly) { // leave out in case of task chaining --> attention calc is NULL
       // Note: _input is guaranteed not to be empty by Task constructor
       calc = copyCalculator(systems, _input.front(), name());
       Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
+      if (calc->name() == "QMMM") {
+        isQmmm = true;
+      }
     }
 
     // Generate optimizer
     auto optimizertype = taskSettings.extract("optimizer", std::string{"BFGS"});
     auto unitcelloptimizertype = taskSettings.extract("unitcelloptimizer", std::string{""});
-    auto optimizer = constructOptimizer(*calc, optimizertype, unitcelloptimizertype);
+    auto optimizer = constructOptimizer(*calc, optimizertype, unitcelloptimizertype, isQmmm);
+
+    // Have to exclude settings check from test run due to newly introduced optimizer types
+    // that cannot be constructed in test runs, because they require the knowledge of the
+    // calculator type which we do not have in a test run
+    if (testRunOnly) {
+      return true;
+    }
 
     // Read and delete special settings
     bool stopOnError = stopOnErrorExtraction(taskSettings);
@@ -90,11 +102,6 @@ class GeometryOptimizationTask : public Task {
     if (!testRunOnly && !Utils::GeometryOptimization::settingsMakeSense(*optimizer)) {
       throw std::logic_error("The given calculator settings are too inaccurate for the given convergence criteria of "
                              "this optimization Task");
-    }
-
-    // If no errors encountered until here, the basic settings should be alright
-    if (testRunOnly) {
-      return true;
     }
 
     // Add observer
@@ -178,12 +185,16 @@ class GeometryOptimizationTask : public Task {
     return cycles < maxiter;
   }
 
-  inline std::shared_ptr<Utils::GeometryOptimizerBase> constructOptimizer(Core::Calculator& calc, std::string type,
-                                                                          std::string cellType) const {
+  inline static std::shared_ptr<Utils::GeometryOptimizerBase> constructOptimizer(Core::Calculator& calc, std::string type,
+                                                                                 std::string cellType, bool isQmmm) {
+    // this method does not fail in test runs for QM/MM optimizers, because in test runs the isQmmm flag is always false
     std::transform(type.begin(), type.end(), type.begin(), ::toupper);
     std::transform(cellType.begin(), cellType.end(), cellType.begin(), ::toupper);
     if (type == "LBFGS") {
       if (cellType.empty()) {
+        if (isQmmm) {
+          return std::make_shared<Utils::QmmmGeometryOptimizer<Utils::Lbfgs>>(calc);
+        }
         return std::make_shared<Utils::GeometryOptimizer<Utils::Lbfgs>>(calc);
       }
       else {
@@ -202,8 +213,12 @@ class GeometryOptimizationTask : public Task {
     }
     else if (type == "BFGS") {
       if (cellType.empty()) {
+        if (isQmmm) {
+          return std::make_shared<Utils::QmmmGeometryOptimizer<Utils::Bfgs>>(calc);
+        }
         return std::make_shared<Utils::GeometryOptimizer<Utils::Bfgs>>(calc);
       }
+
       else {
         if (cellType == "LBFGS") {
           return std::make_shared<Utils::UnitCellGeometryOptimizer<Utils::Bfgs, Utils::Lbfgs>>(calc);
@@ -220,6 +235,9 @@ class GeometryOptimizationTask : public Task {
     }
     else if (type == "SD" || type == "STEEPESTDESCENT") {
       if (cellType.empty()) {
+        if (isQmmm) {
+          return std::make_shared<Utils::QmmmGeometryOptimizer<Utils::SteepestDescent>>(calc);
+        }
         return std::make_shared<Utils::GeometryOptimizer<Utils::SteepestDescent>>(calc);
       }
       else {
@@ -238,6 +256,9 @@ class GeometryOptimizationTask : public Task {
     }
     else if (type == "NR" || type == "NEWTONRAPHSON") {
       if (cellType.empty()) {
+        if (isQmmm) {
+          return std::make_shared<Utils::QmmmGeometryOptimizer<Utils::NewtonRaphson>>(calc);
+        }
         return std::make_shared<Utils::GeometryOptimizer<Utils::NewtonRaphson>>(calc);
       }
       else {

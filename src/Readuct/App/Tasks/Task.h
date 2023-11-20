@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #ifndef READUCT_TASK_H_
@@ -9,6 +9,7 @@
 
 #include <Core/Interfaces/Calculator.h>
 #include <Core/Log.h>
+#include <Utils/CalculatorBasics/Results.h>
 #include <Utils/Settings.h>
 #include <yaml-cpp/yaml.h>
 #include <map>
@@ -35,7 +36,9 @@ class Task {
     if (findIter == systems.end()) {
       throw std::runtime_error("System name '" + name + "' is missing in " + taskName);
     }
-    return findIter->second->clone();
+    auto calc = findIter->second->clone();
+    calc->results() = findIter->second->results();
+    return calc;
   }
 
   /**

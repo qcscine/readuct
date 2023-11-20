@@ -1,22 +1,19 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
 /* Readuct */
 #include "Tasks/TaskFactory.h"
+#include "io.h"
 /* Scine */
 #include <Core/Interfaces/Calculator.h>
 #include <Core/Log.h>
-#include <Core/ModuleManager.h>
-#include <Utils/Geometry.h>
-#include <Utils/IO/ChemicalFileFormats/ChemicalFileHandler.h>
 #include <Utils/IO/Yaml.h>
 
 /* Boost program arguments */
-#include "boost/exception/diagnostic_information.hpp"
 #include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
 
@@ -31,9 +28,6 @@ using namespace Scine;
 using namespace Scine::Readuct;
 
 int main(int argc, char* argv[]) {
-  // Initialize global map for all systems (name - their calculators)
-  std::map<std::string, std::shared_ptr<Core::Calculator>> systems;
-
   namespace po = boost::program_options;
 
   // Arguments
@@ -69,12 +63,6 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  auto input = YAML::LoadFile(filename);
-
-  // Check for invalid top level input sections
-  std::vector<std::string> keywords{"systems", "tasks"};
-  Scine::Utils::checkYamlKeyRecognition(input, keywords);
-
   // Header
   cout << R"(#=============================================================================#)" << Core::Log::endl;
   cout << R"(|   ______   _______     ___       _______   __    __    ______  __________   |)" << Core::Log::endl;
@@ -87,139 +75,21 @@ int main(int argc, char* argv[]) {
   cout << R"(#=============================================================================#)" << Core::Log::endl;
   cout << Core::Log::endl << Core::Log::endl;
 
-  // Load module manager
-  auto& manager = Core::ModuleManager::getInstance();
-
-  // Load systems
-  auto systemsInput = input["systems"];
-  for (size_t i = 0; i < systemsInput.size(); i++) {
-    // Check for invalid system input sections
-    std::vector<std::string> keywords{"name", "method_family", "path", "program", "settings"};
-    Scine::Utils::checkYamlKeyRecognition(systemsInput[i], keywords);
-
-    auto current = systemsInput[i];
-    if (!current["name"]) {
-      cout << "System no. " << i + 1 << " is missing a name.\n";
-      return 1;
-    }
-    std::string name = current["name"].as<std::string>();
-    if (!current["method_family"]) {
-      cout << "A method_family is missing for the system: '" << name << "'.\n";
-      return 1;
-    }
-    std::string method_family = current["method_family"].as<std::string>();
-    if (!current["path"]) {
-      cout << "An input path is missing for the system: '" << name << "'.\n";
-      return 1;
-    }
-    std::string path = current["path"].as<std::string>();
-    std::string program;
-    if (auto node = current["program"]) {
-      program = current["program"].as<std::string>();
-    }
-    // Load molecule
-    auto readResults = Utils::ChemicalFileHandler::read(path);
-    // Generate Calculator
-    std::shared_ptr<Core::Calculator> calc;
-    try {
-      for (auto& x : program) {
-        x = std::tolower(x);
-      }
-      program[0] = std::toupper(program[0]);
-      for (auto& x : method_family) {
-        x = std::toupper(x);
-      }
-      calc = manager.get<Core::Calculator>(Core::Calculator::supports(method_family), program);
-    }
-    catch (...) {
-      if (program.empty()) {
-        cout << "No SCINE module providing '" << method_family << "' is currently loaded.\n";
-        cout << "Please add the module to the SCINE_MODULE_PATH in order for it to be accessible.\n";
-        return 1;
-      }
-      cout << "No SCINE module named '" << program << "' providing '" << method_family << "' is currently loaded.\n";
-      cout << "Please add the module to the SCINE_MODULE_PATH in order for it to be accessible.\n";
-      return 1;
-    }
-    // Apply settings to Calculator
-    if (auto settingsnode = current["settings"]) {
-      nodeToSettings(calc->settings(), settingsnode);
-    }
-    // Set initial structure
-    calc->setStructure(readResults.first);
-    if (!calc->settings().valid()) {
-      calc->settings().throwIncorrectSettings();
-    }
-    systems[name] = calc;
-  }
-
-  // Generate Tasks
-  std::vector<std::unique_ptr<Task>> tasks;
+  std::map<std::string, std::shared_ptr<Core::Calculator>> systems;
+  std::vector<std::shared_ptr<Task>> tasks;
   std::vector<Utils::UniversalSettings::ValueCollection> tasksettings;
-  auto tasksInput = input["tasks"];
-  for (auto current : tasksInput) {
-    // Check for invalid task input sections
-    std::vector<std::string> keywords{"type", "input", "output", "settings"};
-    Scine::Utils::checkYamlKeyRecognition(current, keywords);
-    std::string type = current["type"].as<std::string>();
-    // Parse inputs
-    std::vector<std::string> inputs;
-    auto inputnames = current["input"];
-    if (inputnames.size() == 0) {
-      cout << "Missing system (input name) in task " + type + "\n";
-      return 1;
+  try {
+    auto data = loadYamlFile(filename);
+    auto systemsWithMetaInfo = std::get<0>(data);
+    for (const auto& x : systemsWithMetaInfo) {
+      systems[x.first] = std::get<2>(x.second);
     }
-    for (auto inputname : inputnames) {
-      inputs.push_back(inputname.as<std::string>());
-    }
-    // Parse outputs if present
-    std::vector<std::string> outputs;
-    if (auto outputsnames = current["output"]) {
-      for (auto outputname : outputsnames) {
-        outputs.push_back(outputname.as<std::string>());
-      }
-    }
-    // Generate task
-    tasks.emplace_back(TaskFactory::produce(type, inputs, outputs, logger));
-    // Get task settings
-    if (current["settings"]) {
-      tasksettings.push_back(Utils::deserializeValueCollection(current["settings"]));
-    }
-    else {
-      tasksettings.emplace_back();
-    }
+    tasks = std::get<1>(data);
+    tasksettings = std::get<2>(data);
   }
-
-  // Test task dependencies
-  std::vector<std::string> existing;
-  existing.reserve(systems.size());
-  for (const auto& s : systems) {
-    existing.push_back(s.first);
-  }
-  for (size_t i = 0; i < tasks.size(); i++) {
-    for (const auto& required : tasks[i]->input()) {
-      if (std::find(existing.begin(), existing.end(), required) == existing.end()) {
-        cout << "Task No. " << i + 1 << " requires a system named '" << required
-             << "' which won't be present at that stage." << Core::Log::endl;
-        return 1;
-      }
-    }
-    for (const auto& generated : tasks[i]->output()) {
-      existing.push_back(generated);
-    }
-  }
-
-  // Run tasks in testing mode to check all settings without calculations and writing files
-  // if this goes through all basic settings are correct, otherwise we hopefully have a meaningful error in task
-  for (size_t i = 0; i < tasks.size(); i++) {
-    auto name = tasks[i]->name();
-    try {
-      tasks[i]->run(systems, tasksettings[i], true);
-    }
-    catch (...) {
-      throw std::logic_error("Encountered the following error in task " + name + ":\n" +
-                             boost::current_exception_diagnostic_information());
-    }
+  catch (std::logic_error& e) {
+    cout << e.what() << Core::Log::endl;
+    return 1;
   }
 
   // Run tasks

@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
@@ -26,7 +26,7 @@ namespace CostBasedOptimization {
  * \tparam C2 Second cost calculator
  */
 template<typename C1, typename C2>
-class CostCombiner : public ReactionPathCostCalculator {
+class SCINE_DLLEXPORT CostCombiner : public ReactionPathCostCalculator {
   static_assert(std::is_base_of<ReactionPathCostCalculator, C1>::value,
                 "C1 must be a descendant of ReactionPathCostCalculator");
   static_assert(std::is_base_of<ReactionPathCostCalculator, C2>::value,

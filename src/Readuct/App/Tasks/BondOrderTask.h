@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 #ifndef READUCT_BONDORDERTASK_H_
@@ -64,6 +64,7 @@ class BondOrderTask : public Task {
 
     // Note: _input is guaranteed not to be empty by Task constructor
     auto calc = copyCalculator(systems, _input.front(), name());
+    const auto previousResults = calc->results();
     Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
     // Calculate bond orders and energy if not present in the results yet
@@ -82,6 +83,7 @@ class BondOrderTask : public Task {
         _logger->warning
             << "  " + name() + " was not successful with error:\n  " + boost::current_exception_diagnostic_information()
             << Core::Log::endl;
+        calc->results() = previousResults + calc->results();
         return false;
       }
     }
@@ -104,6 +106,7 @@ class BondOrderTask : public Task {
     }
     cout << Core::Log::nl << Core::Log::endl;
 
+    calc->results() = previousResults + calc->results();
     // Store result
     if (!_output.empty()) {
       systems[_output.front()] = std::move(calc);

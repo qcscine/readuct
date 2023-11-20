@@ -15,7 +15,7 @@
 
 %%
 % Book metadata
-\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 5.0.0}}
+\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 5.1.0}}
 \author[The SCINE ReaDuct Developers]{The SCINE ReaDuct Developers: \newline \noindent Moritz Bensberg, Christoph Brunken, Katja-Sophia Csizi, Stephanie Grimmel, Stefan Gugler, Jan-Grimo Sobez, Miguel Steiner, Paul T\"urtscher, Jan Unsleber, Alain C. Vaucher, Thomas Weymuth, and Markus Reiher}
 \publisher{ETH Z\"urich}
 
@@ -1040,7 +1040,7 @@ if desired, the following settings can always be set:
 \item \texttt{trajectory\_guess}: A list of possibly concatenated XYZ files that should be added as data points when interpolating
 the initial spline. The files may, but do not need to, include the start and end structures as first and last structure.
 \item \texttt{extract\_ts\_guess}:  Whether a guess for the transition state structure should be extracted from the optimized
-path. By default set to \texttt{false}. If set to true, the structure is written into the file \texttt{<output\_name>\_tsguess.xyz}.
+path. By default set to \texttt{true}. If set to true, the structure is written into the file \texttt{<output\_name>\_tsguess.xyz}.
 \item \texttt{extract\_threshold}: Specifies the threshold for the extraction of the maximum energy structure from a
 reaction profile. For the extraction, the part of the spline around its maximum is discretized to five grid points. These
 points are refined until the energy difference between the two points neighboring the point with maximal energy is less

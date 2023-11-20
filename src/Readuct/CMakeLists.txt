@@ -37,6 +37,11 @@ add_executable(ReaductApp ${READUCT_APP_FILES})
 add_executable(Scine::ReaductApp ALIAS ReaductApp)
 set_target_properties(ReaductApp PROPERTIES OUTPUT_NAME readuct)
 
+if(MSVC) 
+  target_compile_definitions(ReaductApp PUBLIC BOOST_ALL_DYN_LINK)
+  target_compile_options(ReaductApp PRIVATE /bigobj /MP)
+endif()
+
 # Shared Readuct library / Readuct module
 add_library(Readuct ${READUCT_ELEMENTARY_STEP_OPTIMIZATION_FILES})
 if(NOT BUILD_SHARED_LIBS)
@@ -55,6 +60,11 @@ target_link_libraries(Readuct PUBLIC Scine::UtilsOS PRIVATE yaml-cpp)
 target_compile_options(Readuct PUBLIC
   $<TARGET_PROPERTY:Scine::Core,INTERFACE_COMPILE_OPTIONS>
 )
+
+if(MSVC) 
+  target_compile_options(Readuct PRIVATE /bigobj /MP)
+endif()
+
 add_library(Scine::Readuct ALIAS Readuct)
 install(
   TARGETS Readuct
@@ -84,6 +94,10 @@ if(SCINE_BUILD_TESTS)
   target_compile_options(Readuct_tests PUBLIC
     $<TARGET_PROPERTY:Scine::Core,INTERFACE_COMPILE_OPTIONS>
   )
+
+  if(MSVC) 
+	target_compile_options(Readuct_tests PRIVATE /bigobj /MP)
+  endif()
 endif()
 
 target_include_directories(ReaductApp PRIVATE

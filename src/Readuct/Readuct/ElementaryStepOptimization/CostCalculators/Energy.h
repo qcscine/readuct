@@ -1,7 +1,7 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
@@ -22,7 +22,7 @@ namespace CostBasedOptimization {
 /*!
  * Cost calculator integrating the energy along the b-spline.
  */
-class Energy : public IntegratingCostCalculator {
+class SCINE_DLLEXPORT Energy : public IntegratingCostCalculator {
   Utils::AutomaticDifferentiation::FirstND calculateCostContribution(const Utils::BSplines::BSpline& spline, double u,
                                                                      double energy,
                                                                      const Utils::GradientCollection& gradients) const override;

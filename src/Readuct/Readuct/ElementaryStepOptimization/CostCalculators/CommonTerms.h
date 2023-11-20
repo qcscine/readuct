@@ -1,13 +1,14 @@
 /**
  * @file
  * @copyright This code is licensed under the 3-clause BSD license.\n
- *            Copyright ETH Zurich, Laboratory of Physical Chemistry, Reiher Group.\n
+ *            Copyright ETH Zurich, Department of Chemistry and Applied Biosciences, Reiher Group.\n
  *            See LICENSE.txt for details.
  */
 
 #ifndef READUCT_ELEMENTARYSTEPOPTIMIZATION_COSTCALCULATORS_COMMONTERMS_H
 #define READUCT_ELEMENTARYSTEPOPTIMIZATION_COSTCALCULATORS_COMMONTERMS_H
 
+#include "../MSVCCompatibility.h"
 #include <Eigen/Core>
 #include <vector>
 
@@ -38,7 +39,7 @@ namespace CostBasedOptimization {
  * Frequent terms in cost functions.
  * The functions return objects for the cost with derivatives of the inner control points.
  */
-class CommonTerms {
+class SCINE_DLLEXPORT CommonTerms {
  public:
   static Utils::AutomaticDifferentiation::FirstND squaredNormOfSplineDerivative(const Utils::BSplines::BSpline& spline,
                                                                                 double u);
