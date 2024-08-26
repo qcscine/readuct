@@ -12,6 +12,7 @@ set(READUCT_APP_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/HessianTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/IrcTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/SinglePointTask.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/IntegralTask.h
   ${CMAKE_CURRENT_SOURCE_DIR}/App/Tasks/BSplineInterpolationTask.h
 )
 set(READUCT_ELEMENTARY_STEP_OPTIMIZATION_FILES

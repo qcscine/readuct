@@ -62,7 +62,10 @@ class Calculation:
             if line.startswith('  The (electronic) energy is'):
                 self.energy = float(splitted_output[index].split()[4])
             if line == '     #    cm^-1':
-                self.lowest_frequency = float(splitted_output[index + 1].split()[1])
+                next_line_split = splitted_output[index + 1].split()
+                if next_line_split:
+                    self.lowest_frequency = float(splitted_output[index + 1].split()[1])
+
         if self._input['tasks'][0]['type'] in ['afir', 'geoopt', 'ts', 'irc', 'nt', 'nt2']:
             self.optimized_structure = self.__load_xyz_file('default_system_output/default_system_output.xyz')
         if self._input['tasks'][0]['type'] in ['bspline']:
@@ -357,6 +360,31 @@ class TestReaductFast(TestReaductBase):
         self.assertTrue(success)
         self.assertTrue(-9073.1 - calculation.lowest_frequency < 1.0)
 
+    def test_hessian_task_single_atom(self):
+        default_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'br.xyz'),
+             'name': 'Br',
+             'method_family': 'PM6',
+             'settings': {
+                 'self_consistence_criterion': 1e-8,
+                 'density_rmsd_criterion': 1e-8,
+                 'spin_multiplicity': 2,
+             }
+             }
+        ],
+            'tasks': [
+                {'input': ['Br'],
+                 'type': 'hessian',
+                 }
+            ]
+        }
+
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
+        self.assertTrue(default_calculation.lowest_frequency == 0)  # There is no frequency printed to the output.
+
+
     def test_structure_optimization_task(self):
         default_input = {'systems': [
             {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
@@ -385,6 +413,7 @@ class TestReaductFast(TestReaductBase):
 
         # Due to the form of the PES in this case the fidelity of the test is only the first digit.
         self.assertAlmostEqual(difference, 0.0e0, places=1)
+
 
     def test_single_atom_opt_task(self):
         default_input = {'systems': [
@@ -432,6 +461,96 @@ class TestReaductFast(TestReaductBase):
              'type': 'hessian'
              }
         ]
+        }
+
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
+        loaded = default_calculation.optimized_structure
+        actual = dihedral(np.array(loaded[2][1:]), np.array(loaded[0][1:]),
+                          np.array(loaded[1][1:]), np.array(loaded[3][1:]))
+        expected = 0.0
+        # Due to the form of the PES in this case the fidelity of the
+        #  test is only the first digit.
+        self.assertAlmostEqual(abs(actual-expected), 0.0e0, places=1)
+        # The reference value was obtained form MOPAC as implemented in ADF 2016.107.
+        self.assertAlmostEqual(default_calculation.lowest_frequency, -543.5, places=0)
+
+    def test_qmmm_transition_state_optimization_task(self):
+        default_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'qmmm.ts_guess.xyz'),
+             'name': 'default_system',
+             'method_family': 'pm6/SFAM',
+             'program': 'sparrow/swoose',
+             'settings': {
+                'method': 'pm6',
+                'qm_atoms': [0, 1, 2, 3],
+                'electrostatic_embedding': False,
+                'ignore_qm': False,
+                'charge_redistribution': 'rc',
+                'reduced_qmmm_energy': False,
+                'optimize_links': False,
+                'silence_underlying_calculators': True,
+                'atom_type_level': 'high',
+                'print_mm_contributions': False,
+                'covalent_contributions_only': False,
+                'mm_parameter_file': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'qmmm.Parameters.dat'),
+                'mm_connectivity_file': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'qmmm.Connectivity.dat'),
+                'self_consistence_criterion': 1e-8,
+                'density_rmsd_criterion': 1e-8
+            }
+            }
+        ],
+            'tasks': [
+            {'input': ['default_system'],
+             'output': ['default_system_output'],
+             'type': 'ts',
+             'settings': {'optimizer': 'ev',
+                          'ev_follow_mode': 0},
+             },
+            {'input': ['default_system_output'],
+             'type': 'hessian'
+             }
+        ]
+        }
+
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
+        loaded = default_calculation.optimized_structure
+        actual = dihedral(np.array(loaded[2][1:]), np.array(loaded[3][1:]),
+                          np.array(loaded[0][1:]), np.array(loaded[1][1:]))
+        expected = -180.0
+        # Due to the form of the PES in this case the fidelity of the
+        #  test is only the first digit.
+
+        self.assertAlmostEqual(abs(actual)-abs(expected), 0.0e0, places=1)
+        self.assertAlmostEqual(default_calculation.lowest_frequency, -2345.1, places=0)
+
+    def test_transition_state_optimization_task_with_mode_selection_weights(self):
+        default_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2.xyz'),
+             'name': 'default_system',
+             'method_family': 'PM6',
+             'settings': {
+                 'self_consistence_criterion': 1e-8,
+                 'density_rmsd_criterion': 1e-8
+             }
+             }
+        ],
+            'tasks': [
+                {'input': ['default_system'],
+                 'output': ['default_system_output'],
+                 'type': 'ts',
+                 'settings': {'optimizer': 'ev',
+                              'automatic_mode_selection': [2, 3],
+                              'automatic_mode_selection_wavenumber_weight': 0.6,
+                              'automatic_mode_selection_contribution_weight': 0.4},
+                 },
+                {'input': ['default_system_output'],
+                 'type': 'hessian'
+                 }
+            ]
         }
 
         default_calculation = Calculation(default_input)
@@ -671,7 +790,7 @@ class TestReaductFast(TestReaductBase):
         self.assertTrue(success)
         loaded = default_calculation.optimized_structure
         actual = np.linalg.norm(np.array(loaded[0][1:]) - np.array(loaded[1][1:]))
-        self.assertAlmostEqual(round(actual, 2), 2.40, places=2)
+        self.assertTrue(actual - 2.40 < 0.02)
         actual = np.linalg.norm(np.array(loaded[5][1:]) - np.array(loaded[1][1:]))
         # The following check yields 2.3 in release mode, but 2.5 in debug mode
         self.assertAlmostEqual(actual, 2.4, places=0)
@@ -713,6 +832,25 @@ class TestReaductFast(TestReaductBase):
         # Due to the form of the PES in this case the fidelity of the
         #  test is only the first digit.
         self.assertAlmostEqual(abs(actual)-expected, 0.0e0, places=1)
+
+    def test_integral_task(self):
+        default_input = {'systems': [
+            {'path': os.path.join(os.path.dirname(os.path.realpath(__file__)), 'h2o2_ts.xyz'),
+             'name': 'system',
+             'method_family': 'pm6',
+             }
+        ],
+            'tasks': [
+                {'input': ['system'],
+                 'type': 'ints',
+                 'settings': {'require_one_electron_integrals': True},
+                 },
+            ]
+        }
+
+        default_calculation = Calculation(default_input)
+        success = default_calculation.run()
+        self.assertTrue(success)
 
     def test_bsplines_task(self):
         default_input = {'systems': [

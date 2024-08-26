@@ -90,4 +90,4 @@ class CostCombinerEditor : public CostCalculatorEditorImpl<Combiner<E1, E2>> {
 
 } // namespace Readuct
 } // namespace Scine
-#endif // ELEMENTARYSTEPOPTIMIZATION_COSTBASEDOPTIMIZATION_COSTCOMBINEREDITOR_H
+#endif // READUCT_ELEMENTARYSTEPOPTIMIZATION_COSTCALCULATORS_COSTCOMBINEREDITOR_H

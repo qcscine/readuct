@@ -38,4 +38,4 @@ class ElasticPathEditor : public CostCalculatorEditorImpl<ElasticPath> {
 
 } // namespace Readuct
 } // namespace Scine
-#endif // ELEMENTARYSTEPOPTIMIZATION_COSTBASEDOPTIMIZATION_ELASTICPATHEDITOR_H
+#endif // READUCT_ELEMENTARYSTEPOPTIMIZATION_COSTCALCULATORS_ELASTICPATHEDITOR_H

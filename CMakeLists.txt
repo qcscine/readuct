@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.9)
 # tree must then provide a properly namespaced target with the same name as
 # your project.
 project(Readuct
-  VERSION 5.1.0
+  VERSION 6.0.0
   DESCRIPTION "This is the SCINE module ReaDuct."
 )
 
@@ -15,12 +15,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/dev/cmake
 include(ComponentSetup)
 scine_setup_component()
 
-# Enable testing
-if(SCINE_BUILD_TESTS)
-  enable_testing()
-endif()
-
-# Enable testing
+# Don't build tests of dependencies
+set(_build_tests ${SCINE_BUILD_TESTS})
+set(SCINE_BUILD_TESTS OFF)
 option(BUILD_SPARROW "Will download and build Sparrow (the SCINE semi-empirical module)." OFF)
 if(BUILD_SPARROW)
   include(ImportSparrow)
@@ -31,6 +28,18 @@ option(BUILD_XTB "Will download and build SCINE Xtb (the SCINE wrapper around th
 if(BUILD_XTB)
   include(ImportXtb)
   import_xtb()
+endif()
+
+option(BUILD_SWOOSE "Will download and build Swoose (the SCINE QM/MM module)." OFF)
+if(BUILD_SWOOSE)
+  include(ImportSwoose)
+  import_swoose()
+endif()
+set(SCINE_BUILD_TESTS ${_build_tests})
+
+# Enable testing
+if(SCINE_BUILD_TESTS)
+  enable_testing()
 endif()
 
 option(SCINE_USE_MKL "Use the optimized MKL library for linear algebra operations of Eigen" OFF)

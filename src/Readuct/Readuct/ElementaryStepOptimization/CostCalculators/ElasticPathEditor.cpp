@@ -18,12 +18,8 @@ namespace ElementaryStepOptimization {
 
 namespace CostBasedOptimization {
 
-namespace {
-constexpr const char* description = "Elastic path cost calculator settings";
-}
-
 DescriptorCollection ElasticPathEditor::getSettingDescriptors() const {
-  DescriptorCollection descriptors(description);
+  DescriptorCollection descriptors("Elastic path cost calculator settings");
   return descriptors;
 }
 

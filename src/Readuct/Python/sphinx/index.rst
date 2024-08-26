@@ -6,7 +6,8 @@ User Manual
 
 The user manuals are available for download as PDF files:
 
-- :download:`Download Latest User Manual PDF <https://scine.ethz.ch/static/download/manuals/v5.1.0/readuct_manual.pdf>`
+- :download:`Download Latest User Manual PDF <https://scine.ethz.ch/static/download/manuals/v6.0.0/readuct_manual.pdf>`
+- :download:`Download User Manual PDF v6.0.0 <https://scine.ethz.ch/static/download/manuals/v6.0.0/readuct_manual.pdf>`
 - :download:`Download User Manual PDF v5.1.0 <https://scine.ethz.ch/static/download/manuals/v5.1.0/readuct_manual.pdf>`
 - :download:`Download User Manual PDF v5.0.0 <https://scine.ethz.ch/static/download/manuals/v5.0.0/readuct_manual.pdf>`
 - :download:`Download User Manual PDF v4.1.0 <https://scine.ethz.ch/static/download/manuals/v4.1.0/readuct_manual.pdf>`

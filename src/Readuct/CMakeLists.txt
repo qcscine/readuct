@@ -4,8 +4,14 @@ include(Files.cmake)
 # Find/Import dependecies
 include(ImportUtilsOS)
 include(ImportCore)
+
+# Don't build tests of dependencies
+set(_build_tests ${SCINE_BUILD_TESTS})
+set(SCINE_BUILD_TESTS OFF)
 import_utils_os()
 import_core()
+set(SCINE_BUILD_TESTS ${_build_tests})
+
 include(ImportYamlCpp)
 import_yamlcpp()
 
@@ -196,6 +202,19 @@ if(SCINE_BUILD_PYTHON_BINDINGS)
   message(STATUS "Targets to copy for python bindings: ${_py_targets_to_copy}")
   unset(_py_targets_to_copy)
 
+  # Utils python dependency
+  include(FindPythonModule)
+  if(scine-utils-os_BINARY_DIR)
+    set(UTILS_PYTHONPATH ${scine-utils-os_BINARY_DIR}/src/Utils)
+  else()
+    find_python_module(scine_utilities)
+    if(PY_SCINE_UTILITIES)
+      set(UTILS_PYTHONPATH ${PY_SCINE_UTILITIES})
+    else()
+      message(WARNING "Utils Python module not found. Cannot test Python module or generate stubs")
+    endif()
+  endif()
+
   add_custom_command(TARGET Readuct POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${_py_target_gen_exprs} ${CMAKE_CURRENT_BINARY_DIR}/scine_readuct
     COMMENT "Copying required shared libraries into python package directory"
@@ -213,6 +232,20 @@ if(SCINE_BUILD_PYTHON_BINDINGS)
     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
   )
 
+  # Typing stubs
+  find_python_module(pybind11_stubgen)
+  if(PY_PYBIND11_STUBGEN AND UTILS_PYTHONPATH)
+    add_custom_command(TARGET scine_readuct POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${UTILS_PYTHONPATH}:$ENV{PYTHONPATH} ${PYTHON_EXECUTABLE} -m pybind11_stubgen -o . --root-module-suffix \"\" --no-setup-py --bare-numpy-ndarray scine_readuct
+      COMMENT "Generating Python package typechecking stubs with pybind11-stubgen"
+      BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/scine_readuct/__init__.pyi
+  )
+  elseif(UTILS_PYTHONPATH)
+    message(STATUS "Not generating typechecking stubs for Python package as pybind11-stubgen was not found")
+  else()
+    message(STATUS "Not generating typechecking stubs for Python package as SCINE Utilities dependency was not found")
+  endif()
+
   include(SphinxDocumentation)
   scine_sphinx_documentation(
     TARGET scine_readuct
@@ -226,32 +259,55 @@ if(SCINE_BUILD_PYTHON_BINDINGS)
 endif()
 
 # Setup App tests if possible
-if((SCINE_BUILD_TESTS) AND (TARGET Scine::Sparrow))
-  string(TOLOWER ${CMAKE_BUILD_TYPE} build_type)
-  if(build_type MATCHES debug)
-    add_test(
-      NAME Readuct_Application
-      COMMAND ${PYTHON_EXECUTABLE} -B -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/Tests/AppTests/test_readuct.py -k TestReaductFast --junitxml=${CMAKE_CURRENT_BINARY_DIR}/readuct_application_report.xml
-      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    )
+set(_test_requirements_present OFF)
+if(SCINE_BUILD_TESTS)
+  if(NOT TARGET Scine::Sparrow)
+    message(WARNING "Building tests requires the Sparrow module. Please build it with '-DBUILD_SPARROW=ON'")
+    set(_test_requirements_present OFF)
   else()
-    add_test(
-      NAME Readuct_Application
-      COMMAND ${PYTHON_EXECUTABLE} -B -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/Tests/AppTests/test_readuct.py --junitxml=${CMAKE_CURRENT_BINARY_DIR}/readuct_application_report.xml
-      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    )
-  endif()
+    set(_test_requirements_present ON)
+  endif ()
 
-  include(TargetLibName)
-  target_lib_directory(Scine::Sparrow _sparrow_module_path)
-  message(STATUS "Sparrow module found at ${_sparrow_module_path}")
-  target_lib_directory(Scine::UtilsOS _utils_module_path)
-  message(STATUS "Utils module found at ${_utils_module_path}")
-  set_tests_properties(Readuct_Application PROPERTIES
-    ENVIRONMENT "PATH=$ENV{PATH}:${CMAKE_CURRENT_BINARY_DIR};SCINE_MODULE_PATH=${_sparrow_module_path}:${_utils_module_path}"
-  )
-  unset(_sparrow_module_path)
-  unset(_utils_module_path)
+  if(NOT TARGET Scine::Swoose)
+    message(WARNING "Building tests requires the Swoose module. Please build it with '-DBUILD_SWOOSE=ON'")
+    set(_test_requirements_present OFF)
+  else()
+    set(_test_requirements_present ON)
+  endif ()
+
+  if(NOT _test_requirements_present)
+    set(SCINE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    message(WARNING "Not building tests due to missing requirements")
+  else ()
+    string(TOLOWER ${CMAKE_BUILD_TYPE} build_type)
+    if(build_type MATCHES debug)
+      add_test(
+        NAME Readuct_Application
+        COMMAND ${PYTHON_EXECUTABLE} -B -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/Tests/AppTests/test_readuct.py -k TestReaductFast --junitxml=${CMAKE_CURRENT_BINARY_DIR}/readuct_application_report.xml
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+      )
+    else()
+      add_test(
+        NAME Readuct_Application
+        COMMAND ${PYTHON_EXECUTABLE} -B -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/Tests/AppTests/test_readuct.py --junitxml=${CMAKE_CURRENT_BINARY_DIR}/readuct_application_report.xml
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+      )
+    endif ()
+
+    include(TargetLibName)
+    target_lib_directory(Scine::Sparrow _sparrow_module_path)
+    message(STATUS "Sparrow module found at ${_sparrow_module_path}")
+    target_lib_directory(Scine::Swoose _swoose_module_path)
+    message(STATUS "Swoose module found at ${_swoose_module_path}")
+    target_lib_directory(Scine::UtilsOS _utils_module_path)
+    message(STATUS "Utils module found at ${_utils_module_path}")
+    set_tests_properties(Readuct_Application PROPERTIES
+      ENVIRONMENT "PATH=$ENV{PATH}:${CMAKE_CURRENT_BINARY_DIR};SCINE_MODULE_PATH=${_sparrow_module_path}:${_swoose_module_path}:${_utils_module_path}"
+    )
+    unset(_sparrow_module_path)
+    unset(_swoose_module_path)
+    unset(_utils_module_path)
+  endif ()
 endif()
 
 if(SCINE_BUILD_PYTHON_BINDINGS)

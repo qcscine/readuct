@@ -38,4 +38,4 @@ class EnergyEditor : public CostCalculatorEditorImpl<Energy> {
 
 } // namespace Readuct
 } // namespace Scine
-#endif // ELEMENTARYSTEPOPTIMIZATION_COSTBASEDOPTIMIZATION_ENERGYEDITOR_H
+#endif // READUCT_ELEMENTARYSTEPOPTIMIZATION_COSTCALCULATORS_ENERGYEDITOR_H

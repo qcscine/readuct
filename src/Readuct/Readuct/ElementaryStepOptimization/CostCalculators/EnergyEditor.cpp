@@ -16,12 +16,8 @@ namespace ElementaryStepOptimization {
 
 namespace CostBasedOptimization {
 
-namespace {
-constexpr const char* description = "Energy along path";
-}
-
 Utils::UniversalSettings::DescriptorCollection EnergyEditor::getSettingDescriptors() const {
-  Utils::UniversalSettings::DescriptorCollection descriptorCollection{description};
+  Utils::UniversalSettings::DescriptorCollection descriptorCollection{"Energy along path"};
   return descriptorCollection;
 }
 

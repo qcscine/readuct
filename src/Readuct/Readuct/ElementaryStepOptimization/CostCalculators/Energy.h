@@ -36,4 +36,4 @@ class SCINE_DLLEXPORT Energy : public IntegratingCostCalculator {
 
 } // namespace Readuct
 } // namespace Scine
-#endif // ELEMENTARYSTEPOPTIMIZATION_COSTBASEDOPTIMIZATION_ENERGY_H
+#endif // READUCT_ELEMENTARYSTEPOPTIMIZATION_COSTCALCULATORS_ENERGY_H

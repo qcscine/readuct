@@ -12,6 +12,7 @@
 #include "Tasks/BondOrderTask.h"
 #include "Tasks/GeometryOptimizationTask.h"
 #include "Tasks/HessianTask.h"
+#include "Tasks/IntegralTask.h"
 #include "Tasks/IrcTask.h"
 #include "Tasks/NtOptimization2Task.h"
 #include "Tasks/NtOptimizationTask.h"
@@ -79,6 +80,9 @@ class TaskFactory {
     }
     else if (name == "BSPLINE_INTERPOLATION" || name == "BSPLINEINTERPOLATION" || name == "BSPLINE") {
       task = std::make_unique<BSplineInterpolationTask>(input, output, logger);
+    }
+    else if (name == "INTEGRALS" || name == "INTS") {
+      task = std::make_unique<IntegralTask>(input, output, logger);
     }
     else {
       throw std::runtime_error("The requested task '" + name + "' is not available.\n");

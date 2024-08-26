@@ -60,6 +60,8 @@ class SinglePointTask : public Task {
     bool requireGradients = taskSettings.extract("require_gradients", false);
     bool requireStressTensor = taskSettings.extract("require_stress_tensor", false);
     bool requireBondOrders = taskSettings.extract("require_bond_orders", false);
+    bool requirePartialEnergies = taskSettings.extract("require_partial_energies", false);
+    bool requirePartialGradients = taskSettings.extract("require_partial_gradients", false);
     bool requireOrbitalEnergies = taskSettings.extract("orbital_energies", false);
     bool silentCalculator = taskSettings.extract("silent_stdout_calculator", true);
     int spinPropensityCheck = taskSettings.extract("spin_propensity_check", 0);
@@ -84,11 +86,13 @@ class SinglePointTask : public Task {
     const auto previousResults = calc->results();
     Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
     // Check for available properties
-    bool chargesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::AtomicCharges);
-    bool gradientsAvailable = calc->possibleProperties().containsSubSet(Utils::Property::Gradients);
-    bool stressTensorAvailable = calc->possibleProperties().containsSubSet(Utils::Property::StressTensor);
-    bool orbitalEnergiesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::OrbitalEnergies);
-    bool bondOrdersAvailable = calc->possibleProperties().containsSubSet(Utils::Property::BondOrderMatrix);
+    const bool chargesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::AtomicCharges);
+    const bool gradientsAvailable = calc->possibleProperties().containsSubSet(Utils::Property::Gradients);
+    const bool stressTensorAvailable = calc->possibleProperties().containsSubSet(Utils::Property::StressTensor);
+    const bool orbitalEnergiesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::OrbitalEnergies);
+    const bool bondOrdersAvailable = calc->possibleProperties().containsSubSet(Utils::Property::BondOrderMatrix);
+    const bool partialEnergiesAvailable = calc->possibleProperties().containsSubSet(Utils::Property::PartialEnergies);
+    const bool partialGradientsAvailable = calc->possibleProperties().containsSubSet(Utils::Property::PartialGradients);
     if (requireCharges && !chargesAvailable) {
       throw std::logic_error("Charges required, but chosen calculator does not provide them.\n"
                              "If you do not need charges, set 'require_charges' to 'false' in the task settings");
@@ -104,6 +108,12 @@ class SinglePointTask : public Task {
     }
     if (requireBondOrders && !bondOrdersAvailable) {
       throw std::logic_error("Bond orders required, but chosen calculator does not provide them.");
+    }
+    if (requirePartialEnergies && !partialEnergiesAvailable) {
+      throw std::logic_error("Partial energies were required, but the chosen calculator does not provide them.");
+    }
+    if (requirePartialGradients && !partialGradientsAvailable) {
+      throw std::logic_error("Partial gradients were required, but the chosen calculator does not provide them.");
     }
     // Calculate energy, and possibly atomic charges and/or gradients
     Utils::PropertyList requiredProperties = Utils::Property::Energy;
@@ -121,6 +131,12 @@ class SinglePointTask : public Task {
     }
     if (requireBondOrders) {
       requiredProperties.addProperty(Utils::Property::BondOrderMatrix);
+    }
+    if (requirePartialEnergies) {
+      requiredProperties.addProperty(Utils::Property::PartialEnergies);
+    }
+    if (requirePartialGradients) {
+      requiredProperties.addProperty(Utils::Property::PartialGradients);
     }
 
     try {
@@ -261,6 +277,31 @@ class SinglePointTask : public Task {
           std::cout << std::setprecision(7) << std::scientific << std::right << std::setw(5) << i << std::setw(22)
                     << betaEnergies[i] << std::endl;
         }
+      }
+    }
+    if (requirePartialEnergies) {
+      auto partiaEnergies = calc->results().get<Utils::Property::PartialEnergies>();
+      cout << "  Partial Energies:\n\n";
+      if (partiaEnergies.find("qm_energy") != partiaEnergies.end()) {
+        cout.printf("  The QM energy is: %+16.9f hartree\n", partiaEnergies["qm_energy"]);
+      }
+      if (partiaEnergies.find("mm_energy") != partiaEnergies.end()) {
+        cout.printf("  The MM energy is: %+16.9f hartree\n", partiaEnergies["mm_energy"]);
+      }
+    }
+    if (requirePartialGradients) {
+      auto partialGradients = calc->results().get<Utils::Property::PartialGradients>();
+      if (partialGradients.find("qm_gradients") != partialGradients.end()) {
+        const auto& qmGradients = partialGradients["qm_gradients"];
+        cout << "  QM gradients (hartree / bohr):\n\n";
+        cout << [&qmGradients](std::ostream& os) { Utils::matrixPrettyPrint(os, qmGradients); };
+        cout << Core::Log::nl;
+      }
+      if (partialGradients.find("mm_gradients") != partialGradients.end()) {
+        const auto& mmGradients = partialGradients["mm_gradients"];
+        cout << "  MM gradients (hartree / bohr):\n\n";
+        cout << [&mmGradients](std::ostream& os) { Utils::matrixPrettyPrint(os, mmGradients); };
+        cout << Core::Log::nl;
       }
     }
 

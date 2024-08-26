@@ -67,7 +67,6 @@ class TsOptimizationTask : public Task {
       if (calc->getStructure()->size() == 1) {
         throw std::runtime_error("Cannot calculate transition state for monoatomic systems.");
       }
-
       if (calc->name() == "QMMM") {
         isQmmm = true;
       }
@@ -92,7 +91,9 @@ class TsOptimizationTask : public Task {
       throw std::logic_error("You specified an automatic selection of the mode and gave a specific mode yourself. "
                              "This is not possible. Only give one of those options.");
     }
+    // Extract settings for mode selection
     std::vector<int> relevantAtoms = taskSettings.extract("automatic_mode_selection", std::vector<int>{});
+    std::tuple<double, double> modeSelectionWeights = extractWeightsForModeSelection(taskSettings);
     // another sanity check
     if (!relevantAtoms.empty()) {
       for (const auto& index : relevantAtoms) {
@@ -102,12 +103,13 @@ class TsOptimizationTask : public Task {
         }
       }
     }
+    bool writeSelectedMode = taskSettings.extract("write_selected_mode", false);
 
     using XyzHandler = Utils::XyzStreamHandler;
     auto cout = _logger->output;
 
-    auto optimizer =
-        constructOptimizer(calc, optimizertype, mmOptimizertype, isQmmm, taskSettings, relevantAtoms, testRunOnly);
+    auto optimizer = constructOptimizer(calc, optimizertype, mmOptimizertype, isQmmm, taskSettings, relevantAtoms,
+                                        modeSelectionWeights, testRunOnly); // rel atoms and weights for dimer
     // Read and delete special settings
     bool stopOnError = stopOnErrorExtraction(taskSettings);
     // Apply settings
@@ -119,11 +121,20 @@ class TsOptimizationTask : public Task {
     if (!relevantAtoms.empty() && !testRunOnly) {
       // necessary because multiple strings are accepted for eigenvectorfollowing optimizer
       if (optimizertype != "dimer" && optimizertype != "bofill") {
-        settings.modifyValue("ev_follow_mode", selectMode(*calc, relevantAtoms));
+        settings.modifyValue("ev_follow_mode", selectMode(*calc, relevantAtoms, std::get<0>(modeSelectionWeights),
+                                                          std::get<1>(modeSelectionWeights)));
       }
       else if (optimizertype == "bofill") {
-        settings.modifyValue("bofill_follow_mode", selectMode(*calc, relevantAtoms));
+        settings.modifyValue("bofill_follow_mode", selectMode(*calc, relevantAtoms, std::get<0>(modeSelectionWeights),
+                                                              std::get<1>(modeSelectionWeights)));
       }
+    }
+    int autoSelectedMode = 0;
+    if (optimizertype != "dimer" && optimizertype != "bofill") {
+      autoSelectedMode = settings.getInt("ev_follow_mode");
+    }
+    else if (optimizertype == "bofill") {
+      autoSelectedMode = settings.getInt("bofill_follow_mode");
     }
     if (!settings.valid()) {
       settings.throwIncorrectSettings();
@@ -141,6 +152,21 @@ class TsOptimizationTask : public Task {
     boost::filesystem::path dir(partialOutput);
     boost::filesystem::create_directory(dir);
     boost::filesystem::path trjfile(partialOutput + ".tsopt.trj.xyz");
+
+    // Write selected mode, if requested and the dimer is not selected.
+    if (optimizertype == "dimer" && writeSelectedMode) {
+      cout << "  Can't write a mode for the Dimer optimizer." << Core::Log::endl;
+    }
+    else if (optimizertype != "dimer" && writeSelectedMode) {
+      auto modes = getNormalModes(*calc);
+      auto trj = modes.getModeAsMolecularTrajectory(autoSelectedMode, *calc->getStructure(), 1.0);
+      std::string selectedModeFilename =
+          Utils::format("%s.selected.vibmode-%05d.trj.xyz", partialOutput.c_str(), autoSelectedMode + 1);
+      std::ofstream selectedModeXyz((dir / selectedModeFilename).string(), std::ofstream::out);
+      Utils::MolecularTrajectoryIO::write(Utils::MolecularTrajectoryIO::format::xyz, selectedModeXyz, trj);
+      selectedModeXyz.close();
+    }
+
     std::ofstream trajectory((dir / trjfile).string(), std::ofstream::out);
     cout.printf("%7s %16s %16s %16s %16s\n", "Cycle", "Energy", "Energy Diff.", "Step RMS", "Max. Step");
     double oldEnergy = 0.0;
@@ -177,7 +203,11 @@ class TsOptimizationTask : public Task {
       cycles = optimizer->optimize(*structure, *_logger);
     }
     catch (...) {
-      XyzHandler::write(trajectory, *calc->getStructure());
+      double lastEnergy = oldEnergy;
+      if (calc->results().has<Utils::Property::Energy>()) {
+        lastEnergy = calc->results().get<Utils::Property::Energy>();
+      }
+      XyzHandler::write(trajectory, *calc->getStructure(), std::to_string(lastEnergy));
       trajectory.close();
       _logger->error << "TS Optimization failed with error!" << Core::Log::endl;
       if (stopOnError) {
@@ -218,19 +248,47 @@ class TsOptimizationTask : public Task {
   }
 
  private:
-  int selectMode(Core::Calculator& calc, const std::vector<int>& relevantAtoms) const {
+  std::tuple<double, double> extractWeightsForModeSelection(Utils::UniversalSettings::ValueCollection& taskSettings) const {
+    double wavenumberWeight = taskSettings.extract("automatic_mode_selection_wavenumber_weight", 0.5);
+    if (wavenumberWeight < 0.0 || wavenumberWeight - 1.0 > 1e-12) {
+      _logger->output << "  Weights for the automatic mode selection must be between 0.0 and 1.0." << Core::Log::endl
+                      << "  Resetting wavenumber weight to default (0.5)." << Core::Log::endl;
+      wavenumberWeight = 0.5;
+    }
+    double contributionWeight = taskSettings.extract("automatic_mode_selection_contribution_weight", 0.5);
+    if (contributionWeight < 0.0 || contributionWeight - 1.0 > 1e-12) {
+      _logger->output << "  Weights for the automatic mode selection must be between 0.0 and 1.0." << Core::Log::endl
+                      << "  Resetting contribution weight to default (0.5)." << Core::Log::endl;
+      contributionWeight = 0.5;
+    }
+    // Check mode selection settings
+    if (std::fabs(wavenumberWeight + contributionWeight - 1.0) > 1e-12) {
+      _logger->output << "  Weights for the automatic mode selection must add up to 1.0." << Core::Log::endl
+                      << "  Resetting weights to default (0.5)." << Core::Log::endl;
+      wavenumberWeight = 0.5;
+      contributionWeight = 0.5;
+    }
+    return std::make_tuple(wavenumberWeight, contributionWeight);
+  }
+
+  int selectMode(Core::Calculator& calc, const std::vector<int>& relevantAtoms, double wavenumberWeight,
+                 double contributionWeight) const {
     _logger->output << "  Automatically selecting normal mode " << Core::Log::endl;
     int nAtoms = calc.getStructure()->size();
-    for (const auto& index : relevantAtoms) {
+    // Get square root of masses of all atoms
+    Eigen::MatrixXd sqRootMasses = Eigen::MatrixXd::Ones(nAtoms, 3);
+    for (int index = 0; index < nAtoms; index++) {
       if (index >= nAtoms) {
         throw std::logic_error("You gave an atom index larger than the number of atoms in automatic_mode_selection. "
                                "This does not make sense.");
       }
+      sqRootMasses.row(index) *= std::sqrt(Utils::ElementInfo::mass(calc.getStructure()->getElement(index)));
     }
     Utils::NormalModesContainer modes = getNormalModes(calc);
     auto waveNumbers = modes.getWaveNumbers();
     std::vector<double> contributions;
-    // cycle all imag. frequencies
+    std::vector<double> imWaveNumbers;
+    // cycle all imaginary frequencies
     for (int i = 0; i < static_cast<int>(waveNumbers.size()); ++i) {
       if (waveNumbers[i] >= 0.0) {
         if (i == 0) {
@@ -238,26 +296,35 @@ class TsOptimizationTask : public Task {
         }
         break;
       }
-      auto mode = modes.getMode(i);
+      const auto& mode = modes.getMode(i);
+      auto massWeightedMode = mode.cwiseProduct(sqRootMasses).normalized();
+
       double contribution = 0.0;
       // cycle all atoms
       for (int j = 0; j < mode.size(); ++j) {
         if (std::find(relevantAtoms.begin(), relevantAtoms.end(), j) != relevantAtoms.end()) {
-          contribution += mode.row(j).norm(); // add norm of vector of relevant atom contributing to mode
+          // squared norm to obtain relative atom contribution of normalized mass weighted mode
+          contribution += massWeightedMode.row(j).squaredNorm();
         }
       }
       contributions.push_back(contribution);
+      imWaveNumbers.push_back(waveNumbers[i]);
     }
-    int selection = std::distance(contributions.begin(), std::max_element(contributions.begin(), contributions.end()));
-    double tolerance = contributions[selection] * 0.1;
-    // Contributions are sorted by wave number
-    //   -> pick the first one that fits into the tolerance.
-    for (unsigned int i = 0; i < contributions.size(); i++) {
-      if ((contributions[selection] - contributions[i]) < tolerance) {
-        selection = i;
-        break;
-      }
-    }
+    Eigen::VectorXd imWaveVec = Eigen::Map<Eigen::VectorXd>(imWaveNumbers.data(), static_cast<int>(imWaveNumbers.size()), 1);
+    Eigen::VectorXd contributionsVec =
+        Eigen::Map<Eigen::VectorXd>(contributions.data(), static_cast<int>(contributions.size()), 1);
+    // Normalize by lowest wavenumber
+    imWaveVec *= 1.0 / imWaveVec(0);
+    // Determine mode Score
+    Eigen::VectorXd modeScore = imWaveVec * wavenumberWeight + contributionsVec * contributionWeight;
+    _logger->output << "  Mode score considering contribution (" << std::to_string(contributionWeight)
+                    << ") and wavenumber (" << std::to_string(wavenumberWeight) << ")." << Core::Log::endl;
+
+    // Get index of maximum
+    Eigen::Index maxRow = 0;
+    modeScore.maxCoeff(&maxRow);
+    int selection = static_cast<int>(maxRow);
+
     _logger->output << "    Automatically selected mode " << std::to_string(selection) << " with wave number "
                     << std::to_string(waveNumbers[selection]) << " cm^-1" << Core::Log::endl;
     return selection;
@@ -266,7 +333,7 @@ class TsOptimizationTask : public Task {
   static Utils::NormalModesContainer getNormalModes(Core::Calculator& calc) {
     const auto previousResults = calc.results();
     bool calculationRequired = false;
-    Utils::PropertyList requiredProperties = Utils::Property::Energy;
+    Utils::PropertyList requiredProperties = Utils::Property::Energy | Utils::Property::Gradients;
     if (!calc.results().has<Utils::Property::Thermochemistry>() &&
         calc.possibleProperties().containsSubSet(Utils::Property::Thermochemistry)) {
       calculationRequired = true;
@@ -298,11 +365,15 @@ class TsOptimizationTask : public Task {
     auto system = calc.getStructure();
     if (calc.results().has<Utils::Property::PartialHessian>()) {
       Utils::PartialHessian hessian = calc.results().get<Utils::Property::PartialHessian>();
-      return Utils::NormalModeAnalysis::calculateNormalModes(hessian, system->getElements(), system->getPositions());
+      // normalized (default in NormalModeAnalysis), but not mass weighted!
+      return Utils::NormalModeAnalysis::calculateNormalModes(hessian, system->getElements(), system->getPositions(),
+                                                             true, false);
     }
     else if (calc.results().has<Utils::Property::Hessian>()) {
       Utils::HessianMatrix hessian = calc.results().get<Utils::Property::Hessian>();
-      return Utils::NormalModeAnalysis::calculateNormalModes(hessian, system->getElements(), system->getPositions());
+      // normalized (default in NormalModeAnalysis), but not mass weighted!
+      return Utils::NormalModeAnalysis::calculateNormalModes(hessian, system->getElements(), system->getPositions(),
+                                                             true, false);
     }
     else {
       throw std::runtime_error("Calculator is missing a Hessian property");
@@ -312,7 +383,7 @@ class TsOptimizationTask : public Task {
   inline std::shared_ptr<Utils::GeometryOptimizerBase>
   constructOptimizer(std::shared_ptr<Core::Calculator>& calc, std::string type, std::string mmType, bool isQmmm,
                      Utils::UniversalSettings::ValueCollection& taskSettings, const std::vector<int>& relevantAtoms,
-                     bool testRunOnly) const {
+                     const std::tuple<double, double>& modeSelectionWeights, bool testRunOnly) const {
     // this method does not fail in test runs for QM/MM optimizers, because in test runs the isQmmm flag is always false
     std::transform(type.begin(), type.end(), type.begin(), ::tolower);
     const std::array<std::string, 5> evfSynonyms = {"ef", "ev", "evf", "eigenvectorfollowing", "eigenvector_following"};
@@ -325,7 +396,7 @@ class TsOptimizationTask : public Task {
       }
       if (type == "dimer") {
         auto optimizer = std::make_shared<Utils::GeometryOptimizer<Utils::Dimer>>(*calc);
-        handleDimerOptimizer(optimizer, taskSettings, calc, relevantAtoms, testRunOnly);
+        handleDimerOptimizer(optimizer, taskSettings, calc, relevantAtoms, modeSelectionWeights, testRunOnly);
         return optimizer;
       }
       throw std::runtime_error(
@@ -362,17 +433,17 @@ class TsOptimizationTask : public Task {
     if (type == "dimer") {
       if (mmType == "bfgs") {
         auto optimizer = std::make_shared<Utils::QmmmTransitionStateOptimizer<Utils::Dimer, Utils::Bfgs>>(calc);
-        handleDimerOptimizer(optimizer->qmOptimizer, taskSettings, calc, relevantAtoms, testRunOnly);
+        handleDimerOptimizer(optimizer->qmOptimizer, taskSettings, calc, relevantAtoms, modeSelectionWeights, testRunOnly);
         return optimizer;
       }
       if (mmType == "lbfgs") {
         auto optimizer = std::make_shared<Utils::QmmmTransitionStateOptimizer<Utils::Dimer, Utils::Lbfgs>>(calc);
-        handleDimerOptimizer(optimizer->qmOptimizer, taskSettings, calc, relevantAtoms, testRunOnly);
+        handleDimerOptimizer(optimizer->qmOptimizer, taskSettings, calc, relevantAtoms, modeSelectionWeights, testRunOnly);
         return optimizer;
       }
       if (mmType == "sd" || mmType == "steepestdescent") {
         auto optimizer = std::make_shared<Utils::QmmmTransitionStateOptimizer<Utils::Dimer, Utils::SteepestDescent>>(calc);
-        handleDimerOptimizer(optimizer->qmOptimizer, taskSettings, calc, relevantAtoms, testRunOnly);
+        handleDimerOptimizer(optimizer->qmOptimizer, taskSettings, calc, relevantAtoms, modeSelectionWeights, testRunOnly);
         return optimizer;
       }
       throw std::runtime_error(
@@ -384,7 +455,7 @@ class TsOptimizationTask : public Task {
   inline void handleDimerOptimizer(std::shared_ptr<Utils::GeometryOptimizer<Utils::Dimer>>& optimizer,
                                    Utils::UniversalSettings::ValueCollection& taskSettings,
                                    const std::shared_ptr<Core::Calculator>& calc, const std::vector<int>& relevantAtoms,
-                                   bool testRunOnly) const {
+                                   const std::tuple<double, double>& modeSelectionWeights, bool testRunOnly) const {
     using XyzHandler = Utils::XyzStreamHandler;
     /* get if coordinates are transformed to know whether a provided guess vector has to be transformed */
     auto coordinateSystem = optimizer->coordinateSystem;
@@ -462,7 +533,7 @@ class TsOptimizationTask : public Task {
         throw std::runtime_error("Calculator has non-initialized structure");
       }
       if (!relevantAtoms.empty()) { // clash with dimer_follow_mode option is already checked prior
-        followedMode = selectMode(*calc, relevantAtoms);
+        followedMode = selectMode(*calc, relevantAtoms, std::get<0>(modeSelectionWeights), std::get<1>(modeSelectionWeights));
       }
       auto mode = modes.getMode(followedMode); // range check for followedMode is included here
       /* Currently Hessian not possible in internal coordinates */

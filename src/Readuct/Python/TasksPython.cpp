@@ -9,6 +9,7 @@
 #include "Tasks/BondOrderTask.h"
 #include "Tasks/GeometryOptimizationTask.h"
 #include "Tasks/HessianTask.h"
+#include "Tasks/IntegralTask.h"
 #include "Tasks/IrcTask.h"
 #include "Tasks/NtOptimization2Task.h"
 #include "Tasks/NtOptimizationTask.h"
@@ -218,6 +219,11 @@ void init_tasks(pybind11::module& m) {
             std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
 
   m.def("run_bspline_task", &run<Readuct::BSplineInterpolationTask>, pybind11::arg("systems"),
+        pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
+        pybind11::arg("observers") =
+            std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());
+
+  m.def("run_integral_task", &run<Readuct::IntegralTask>, pybind11::arg("systems"),
         pybind11::arg("names_of_used_systems"), pybind11::arg("test_run_only") = false,
         pybind11::arg("observers") =
             std::vector<std::function<void(const int&, const Utils::AtomCollection&, const Utils::Results&, const std::string&)>>());

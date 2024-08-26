@@ -1,6 +1,18 @@
 Changelog
 =========
 
+Release 6.0.0
+-------------
+
+- Add test for QM/MM transition state optimization
+- Improve automatic mode selection by introducing a mode score considering a weighted sum of
+  the contributions of the relevant atoms and the wavenumber of the mode.
+- Add the option to export the selected mode of a transition state optimization.
+- Enable thermochemistry calculations for single atoms
+- The one-electron integrals may be written to file through a dedicated integral evaluation task
+- Separated energy and gradient contributions in QM/MM can be requested with the keyword "require_partial_energies",
+  and "require_partial_gradients" in the single-point task.
+
 Release 5.1.0
 -------------
 

@@ -12,6 +12,7 @@
 /* Scine */
 #include <Core/Interfaces/Calculator.h>
 #include <Utils/CalculatorBasics/Results.h>
+#include <Utils/DataStructures/PartialHessian.h>
 #include <Utils/GeometricDerivatives/NormalModeAnalysis.h>
 #include <Utils/GeometricDerivatives/NormalModesContainer.h>
 #include <Utils/IO/FormattedString.h>
@@ -67,13 +68,18 @@ class HessianTask : public Task {
 
     // Note: _input is guaranteed not to be empty by Task constructor
     auto calc = copyCalculator(systems, _input.front(), name());
-    const auto previousResults = calc->results();
+    auto previousResults = calc->results();
     Utils::CalculationRoutines::setLog(*calc, true, true, !silentCalculator);
 
     // Check system size
-    // ToDo: Remove as soon as all calculators are able to handle single atom systems.
+    const bool singleAtom = calc->getStructure()->size() == 1;
     if (calc->getStructure()->size() == 1) {
-      throw std::runtime_error("Cannot perform Hessian task for monoatomic systems.");
+      const auto hessian = Eigen::MatrixXd::Zero(3, 3);
+      calc->results().set<Utils::Property::Hessian>(hessian);
+      calc->results().set<Utils::Property::PartialHessian>(Utils::PartialHessian(hessian, {0}));
+      // Some calculators may remove the Hessian if only the energy is calculated.
+      previousResults.set<Utils::Property::Hessian>(hessian);
+      previousResults.set<Utils::Property::PartialHessian>(Utils::PartialHessian(hessian, {0}));
     }
     // Get/calculate Hessian
     if (!(calc->results().has<Utils::Property::Hessian>() || calc->results().has<Utils::Property::PartialHessian>()) ||
@@ -81,7 +87,7 @@ class HessianTask : public Task {
       // has neither type of Hessian or has no energy
       Utils::PropertyList requiredProperties = Utils::Property::Energy;
       if (!calc->results().has<Utils::Property::Thermochemistry>() &&
-          calc->possibleProperties().containsSubSet(Utils::Property::Thermochemistry)) {
+          calc->possibleProperties().containsSubSet(Utils::Property::Thermochemistry) && !singleAtom) {
         requiredProperties.addProperty(Utils::Property::Thermochemistry);
         // many calculators cannot handle that only Thermochemistry is requested
         // because they delete their results and then assume that Hessian was also calculated
@@ -156,7 +162,7 @@ class HessianTask : public Task {
 
     // Setup output directory if needed
     boost::filesystem::path dir(outputSystem);
-    if (wavenumbers[0] < 0.0) {
+    if (!singleAtom && wavenumbers[0] < 0.0) {
       boost::filesystem::create_directory(dir);
     }
     // Print Imaginary modes
@@ -170,6 +176,14 @@ class HessianTask : public Task {
 
     // Store result
     systems[outputSystem] = calc;
+
+    if (singleAtom) {
+      const auto hessian = calc->results().get<Utils::Property::Hessian>();
+      auto thermoCalc = Scine::Utils::ThermochemistryCalculator(
+          hessian, *calc->getStructure(), calc->settings().getInt(Utils::SettingsNames::spinMultiplicity),
+          calc->results().get<Utils::Property::Energy>());
+      calc->results().set<Utils::Property::Thermochemistry>(thermoCalc.calculate());
+    }
 
     // Print thermochemistry results
     if (calc->results().has<Utils::Property::Thermochemistry>()) {
