@@ -288,6 +288,9 @@ class SinglePointTask : public Task {
       if (partiaEnergies.find("mm_energy") != partiaEnergies.end()) {
         cout.printf("  The MM energy is: %+16.9f hartree\n", partiaEnergies["mm_energy"]);
       }
+      if (partiaEnergies.find("electrostatic") != partiaEnergies.end()) {
+        cout.printf("  The MM Electrostatic energy is: %+16.9f hartree\n", partiaEnergies["electrostatic"]);
+      }
     }
     if (requirePartialGradients) {
       auto partialGradients = calc->results().get<Utils::Property::PartialGradients>();
@@ -301,6 +304,12 @@ class SinglePointTask : public Task {
         const auto& mmGradients = partialGradients["mm_gradients"];
         cout << "  MM gradients (hartree / bohr):\n\n";
         cout << [&mmGradients](std::ostream& os) { Utils::matrixPrettyPrint(os, mmGradients); };
+        cout << Core::Log::nl;
+      }
+      if (partialGradients.find("mm_electrostatic_gradients") != partialGradients.end()) {
+        const auto& mmElectrostaticGradients = partialGradients["mm_electrostatic_gradients"];
+        cout << "  MM Electrostatic gradients (hartree / bohr):\n\n";
+        cout << [&mmElectrostaticGradients](std::ostream& os) { Utils::matrixPrettyPrint(os, mmElectrostaticGradients); };
         cout << Core::Log::nl;
       }
     }

@@ -26,6 +26,12 @@ a2   6.2
 beta   7.3
 scaling_factor_for_atomic_charges   0.9
 
+! c6 indices map
+C1_O1  0
+H_H  1
+H_H_H  2
+O1_C1  3
+
 ! c6 coefficients
 0  
 11.491  3.19015  

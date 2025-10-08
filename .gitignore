@@ -30,9 +30,6 @@ manual/readuct_manual.tex.backup
 manual/readuct_manual.ind
 manual/readuct_manual.ilg
 
-# conan ci files
-conan/*
-
 # python
 */__pycache__/
 *.pyc

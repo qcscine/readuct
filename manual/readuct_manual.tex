@@ -15,7 +15,7 @@
 
 %%
 % Book metadata
-\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 6.0.0}}
+\title[SCINE ReaDuct manual]{User Manual \vskip 0.5em {\setlength{\parindent}{0pt} \Huge SCINE ReaDuct 6.1.0}}
 \author[The SCINE ReaDuct Developers]{The SCINE ReaDuct Developers: \newline \noindent Moritz Bensberg, Christoph Brunken, Katja-Sophia Csizi, Stephanie Grimmel, Stefan Gugler, Jan-Grimo Sobez, Miguel Steiner, Paul T\"urtscher, Jan Unsleber, Alain C. Vaucher, Thomas Weymuth, and Markus Reiher}
 \publisher{ETH Z\"urich}
 
@@ -462,7 +462,7 @@ Note that the name of the method should match the string in a typical \textsc{Tu
 \item \texttt{solvent}: This specifies the solvent for implicit solvation. By default, it is empty. Current supported solvents are: \texttt{water}/\texttt{h2o}, \texttt{acetone}, \texttt{benzene}
 , \texttt{dmso}, \texttt{ethanol}, \texttt{methanol}, \texttt{hexane}, \texttt{toluene}, \texttt{ammonia}, \texttt{chloroform}, \texttt{nitrobenzene}, \texttt{aceticacid}, \texttt{acetonitrile}, \texttt{aniline}, \texttt{benzylalcohol}, \texttt{bromoform}, \texttt{butanol}, \texttt{isobutanol}, \texttt{tertbutanol}, \texttt{carbondisulfide}, \texttt{carbontetrachloride}, \texttt{cyclohexane}, \texttt{cyclohexanone}, \texttt{dichlorobenzene}, \texttt{diethylether}, \texttt{dioxane}, \texttt{dmfa}, \texttt{ethylacetate}, \texttt{dichloroethane}, \texttt{ethyleneglycol}, \texttt{formicacid}, \texttt{isopropanol} and \texttt{thf}. A custom solvent may be specified as \texttt{user\_defined(epsilon, probe-radius)}, where probe-radius denotes the radius of the solvent sphere used to construct the molecular cavity in angstrom and epsilon is the solvent's dielectric constant.
 \item \texttt{scf\_damping}: This specifies whether SCF damping should be applied to aid SCF convergence. Available settings are \texttt{true} and \texttt{false}. By default set to \texttt{false}.
-\item \texttt{scf\_damping\_value}: The exact vlue to be used for the SCF damping. The default value is 0.5.
+\item \texttt{scf\_damping\_value}: The exact value to be used for the SCF damping. The default value is 0.5.
 \item \texttt{scf\_orbitalshift}: Shifts either the energies of unoccupied MOs to higher energies or, in open-shell cases, the energies of closed-shell MOs to lower energies to aid convergence. The default is set to \texttt{0.1}\,hartree.
 \item \texttt{steer\_orbitals}: This specifies whether the orbitals should be perturbed  following a randomized scheme after a converged single point calculation\cite{orbitalperturbation}. By default, this is set to \texttt{false}.
 \item \texttt{point\_charges\_file}: Sets the filename of a \textsc{Turbomole} point charges file (containing the values and coordinates of
@@ -1092,7 +1092,7 @@ If it is set to values larger than \texttt{1.0}, \texttt{sd\_use\_trust\_radius}
 \subsection{Newton Trajectory Calculations}
 
 These tasks are used to generate transition state guesses.
-To this end, sets of atoms are force onto one another, or pushed apart.
+To this end, sets of atoms are forced onto one another, or pushed apart.
 There are currently two algorithms available for these types of calculations:
 Newton Trajectory 1 (\texttt{type: nt}, \texttt{type: nt1}) and Newton Trajectory 2 (\texttt{type: nt2}).
 

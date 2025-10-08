@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Release 6.1.0
+-------------
+
+- Print electrostatic gradients in QM/MM calculations
+- Fix typos in manual
+
 Release 6.0.0
 -------------
 
